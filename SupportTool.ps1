@@ -1,4 +1,4 @@
-﻿#v1.2 DummyFix (2)
+﻿#v1.3 DummyFix
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
@@ -1376,6 +1376,6 @@ $Button22.Add_Click{ InternalSE }
 
 
 #Form name + activate form.
-$Form.Text = "Support Tool 1.2"
+$Form.Text = "Support Tool 1.3"
 $Form.Add_Shown( { $Form.Activate() })
 $Form.ShowDialog()
