@@ -1,6 +1,6 @@
 ﻿#Arthur Ammar Elyas, ammar.elyas@tobiidynavox.com
 #File version 
-$fileversion = "SupportTool v1.6.11.ps1"
+$fileversion = "SupportTool v1.6.12.ps1"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -3069,22 +3069,29 @@ Function LogCollector {
     if ($x1 -or $x2 -or $x3) {
         $x1 = $x2 = $x3 = $null
     }
+    
+    $LogPath = if ($x1) { $x1} else { "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii" }
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    $ErrorPath = if (!$x1 -and $fpath) {"$fpath\ErrorLogs"} elseif ($x1 -and $fpath){"$LogPath\ErrorLogs"}
+    write-host "errorpath $ErrorPath"
+    #TODO 
+    #Clear-Content : Could not find a part of the path 'C:\Users\aes\Desktop\SupportTools\ErrorLogs\'.
+    #At C:\Users\aes\Desktop\SupportTools\SupportTool v1.6.12.ps1:3081 char:12
+    
+    #Creating folder
+if (Test-Path "$ErrorPath") {
+    if (Test-Path "$ErrorPath\$Global:filename") {
+        Clear-Content -Path "$ErrorPath\$Global:filename"
+    } else {
+        New-Item -Path $ErrorPath -Name "$Global:filename" -ItemType "file"
+    }
+} else {
+    Write-Host "Error path $ErrorPath does not exist"
+}
 
     Function LatestErrorLogs {
-        #$LogPath = if ($x1) { $x1} else { "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii" }
-        #$fpath = Get-ChildItem -Path $PSScriptRoot -Filter "2.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-        #$ErrorPath = if (!$x1 -and $fpath) {"$fpath\ErrorLogs"} elseif ($x1 -and $fpath){"$LogPath\ErrorLogs"}
+        $Global:filename = "LatestErrors.txt"
 
-        if ($x1) {
-            $LogPath = $x1
-            $ErrorPath = "$LogPath\ErrorLogs"
-        }
-        else {
-            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            $ErrorPath = "$fpath\ErrorLogs"
-        }
-       
         $fileNames = @(
             #From Appdata
             'Browse.log', ############## Browse.20230412.log Todo
@@ -3118,20 +3125,6 @@ Function LogCollector {
             $_.Name -match ($fileNames -join '|') -and $_.Name -notmatch '\.\d+'
         } | Select-Object -ExpandProperty FullName
 
-        #Creating folder
-        if (!(Test-Path "$ErrorPath")) {
-            Write-Host "Creating ErrorLogs folder in $ErrorPath.."
-            New-Item -Path "$ErrorPath" -ItemType Directory  
-        }
-        #Creating files
-        if (!(Test-Path "$ErrorPath\LatestErrors.txt")) {
-            New-Item -Path $ErrorPath -Name "LatestErrors.txt" -ItemType "file"
-        }
-        else {
-            Clear-Content -Path "$ErrorPath\LatestErrors.txt"
-        }
-
-
         foreach ($file in $files) {
             if (![System.IO.File]::Exists($file)) {
                 Write-Host "file with path $file doesn't exist"
@@ -3153,32 +3146,13 @@ Function LogCollector {
     }
 
     Function EALogs {
-        if ($x1) {
-            $LogPath = $x1
-            $ErrorPath = "$LogPath\ErrorLogs"
-        }
-        else {
-            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\EyeAssist\Logs"
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            $ErrorPath = "$fpath\ErrorLogs"
-        }
+    $Global:filename = "EALogs.txt"
+        
         $EALogs = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
                                                     ($_.Name -match "EyeAssistEngine.*.log") -or
                                                     ($_.Name -match "EyeTrackingSettings.*.log") -or
                                                     ($_.Name -match "RegionInteraction.*.log")
         } | Select-Object -expand Fullname
-        #Creating folder
-        if (!(Test-Path "$ErrorPath")) {
-            Write-Host "Creating ErrorLogs folder in $ErrorPath .."
-            New-Item -Path "$ErrorPath" -ItemType Directory   
-        }
-        #Creating files
-        if (!(Test-Path "$ErrorPath\EALogs.txt")) {
-            New-Item -Path $ErrorPath -Name "EALogs.txt" -ItemType "file"
-        } 
-        else {
-            Clear-Content -Path "$ErrorPath\EALogs.txt"
-        }
 
         $EAcontent = Get-ChildItem -Path $EALogs -Recurse | Sort-Object name -desc | Select-Object -expand Fullname
 
@@ -3197,41 +3171,20 @@ Function LogCollector {
     }
 
     Function TTechLogs {
-        if ($x1) {
-            $LogPath = $x1
-            $ErrorPath = "$LogPath\ErrorLogs"
-        }
-        else {
-            $LogPath = "$ENV:ProgramData\Tobii", "$ENV:USERPROFILE\AppData\Local\Tobii"
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            $ErrorPath = "$fpath\ErrorLogs"
-        }
+        $Global:filename = "Driverlogs.txt"
 
-        #Creating folder
-        if (!(Test-Path "$ErrorPath")) {
-            Write-Host "Creating ErrorLogs folder in $ErrorPath.."
-            New-Item -Path "$ErrorPath" -ItemType Directory   
-        }
-     
         $files = @("pr_log", "ServerLog" , "InteractionLog", "ServiceLog", "ConfigurationLog", "TrayLog")
-
         foreach ($path in $files) {
-            $newfile = "$ErrorPath\$path.txt"
-            if (!(Test-path $newfile)) {
-                New-Item -ItemType File -Path $newfile
-            }
-            else {
-                Clear-Content -Path "$newfile"
-            }
+           
             $TTcontents = Get-ChildItem -Include "$path*.*" -Path $LogPath -Recurse  | Sort-Object name -desc | Where-Object fullname -NotLike "$ErrorPath\$path.txt"   | Select-Object -expand Fullname
             foreach ($TTcontent in $TTcontents) {
                 $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
                 Get-Content -LiteralPath "$TTcontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
                 $content3 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx" -AllMatches | select-string -pattern 'NO_ERROR', 'NoError' -NotMatch | ForEach-Object { $_.Line }
                 if ($content3.length -ne 0) { 
-                    Add-Content -path $newfile -Value $TTcontent
+                    Add-Content -path $ErrorPath\$Global:filename -Value $TTcontent
                 }	
-                Add-Content -path $newfile -value $content3, "`n"
+                Add-Content -path $ErrorPath\$Global:filename -value $content3, "`n"
                 Remove-Item "$ErrorPath\temp.txt"
             }
         }
@@ -3239,38 +3192,20 @@ Function LogCollector {
     }
 
     Function InstallerLogs {
-        if ($x1) {
-            $InstallerLogs = "$x1\TOBII_INSTALLER_LOGS\TEMP", "$x1\TobiiDiagnostics\INSTALLER"
-            $ErrorPath = "$x1\ErrorLogs"
-        }
-        else {
-            $InstallerLogs = "$ENV:USERPROFILE\AppData\Local\Temp", "$ENV:USERPROFILE\AppData\Local\Tobii\Installer"
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            $ErrorPath = "$fpath\ErrorLogs"
-        }
-   
-        if (!(Test-Path "$ErrorPath")) {
-            Write-Host "Creating ErrorLogs folder.."
-            New-Item -Path "$ErrorPath" -ItemType Directory   
-        }
-        if (!(Test-Path "$ErrorPath\InstallerError.txt")) {
-            $ErrorFile = New-Item -Path $ErrorPath -Name "InstallerError.txt" -ItemType "file"
-        }
-        else {
-            Clear-Content -Path "$ErrorPath\InstallerError.txt"
-        }
+        $Global:filename = "InstallerError.txt"
+        if (Test-path $LogPath) { 
+            #$Installercontent = Get-ChildItem -Include "Tobii*.*" -Path $LogPath -Recurse -File |  Sort-Object name -desc | Select-Object -expand Fullname
+            $Installercontent = Get-ChildItem -Path $LogPath -Filter "Tobii*.*" -Include "*.txt","*.log" -Recurse -File | Sort-Object Name -Descending | Select-Object -ExpandProperty FullName
 
-        if (Test-path $InstallerLogs) { 
-            $Installercontent = Get-ChildItem -Include "Tobii*.*" -Path $InstallerLogs -Recurse -File |  Sort-Object name -desc | Select-Object -expand Fullname
             foreach ($NewInstallercontent in $Installercontent) {
                 $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
                 Get-Content -Path "$NewInstallercontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
                 #$content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
                 $content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx:  Error" -AllMatches | select-string -pattern "3: Error", "error status: 0", 'ErrorDialog' -NotMatch | ForEach-Object { $_.Line }
                 if ($content9.length -ne 0) { 
-                    Add-Content -path "$ErrorPath\InstallerError.txt" -Value $NewInstallercontent
+                    Add-Content -path "$ErrorPath\$Global:filename" -Value $NewInstallercontent
                 }	
-                add-Content "$ErrorPath\InstallerError.txt" -value $content9, "`n"
+                add-Content "$ErrorPath\$Global:filename" -value $content9, "`n"
                 Remove-Item "$ErrorPath\temp.txt"	
             }
         }
@@ -3279,24 +3214,11 @@ Function LogCollector {
     }
 
     Function OtherLogs {
+        $Global:filename = "errorlogs.txt"
+
         $LogPath = $x1
         #if given path is a folder:
         if ((Get-Item $LogPath) -is [System.IO.DirectoryInfo]) {
-            #Creating folder
-            $ErrorPath = "$LogPath\ErrorLogs"
-            if (!(Test-Path "$ErrorPath")) {
-                Write-Host "Creating ErrorLogs folder.."
-                New-Item -Path "$ErrorPath" -ItemType Directory   
-            }
-            #Creating files
-            if (!(Test-Path "$ErrorPath\errorlogs.txt")) {
-                New-Item -Path $ErrorPath -Name "errorlogs.txt" -ItemType "file"
-                Write-Host "creating file"
-            }
-            else {
-                Clear-Content -Path "$ErrorPath\errorlogs.txt"
-                Write-Host "cleaing"
-            }
             $Othercontent = Get-ChildItem -Path $LogPath -file | Sort-Object name -desc | Select-Object -expand Fullname
             foreach ($NewOthercontent in $Othercontent) {
                 New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
@@ -3349,6 +3271,8 @@ Function LogCollector {
 
     #C:\Users\aes\Desktop\SupportTools\accessory.tdl
     Function BWLogConvertor {
+        $Global:filename = "accessory.txt"
+
         Write-Host "Running BW log convertor `r`n"
         $LogPath = $x1
         if ($LogPath -match "accessory.tdl") { 
@@ -3361,15 +3285,6 @@ Function LogCollector {
             $newLogPath = $LogPath
         }
 
-        #Creating files
-        if (!(Test-Path "$newLogPath\accessory.txt")) {
-            New-Item -Path $newLogPath -Name "accessory.txt" -ItemType "file"
-            Write-Host "creating file"
-        }
-        else {
-            Clear-Content -Path "$newLogPath\accessory.txt"
-            Write-Host "cleaing"
-        }
         $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "extract_logs.py" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
         Set-Location $fpath
         #$logfile = "C:\Users\aes\Desktop\accessory.tdl"
@@ -3379,21 +3294,13 @@ Function LogCollector {
     }
 
     Function TimingIssueEventLogFinder {
+        $Global:filename = "TimingIssue.txt"
 
         Write-Host "Running Timing Issue EventLog Finder `r`n"
         $LogPath = $x1
 
         $Path = Get-ChildItem -Path $LogPath -Filter "*.evtx" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
    
-        #Creating files
-        if (!(Test-Path "$Path\TimingIssue.txt")) {
-            New-Item -Path $Path -Name "TimingIssue.txt" -ItemType "file"
-            Write-Host "creating file"
-        }
-        else {
-            Clear-Content -Path "$Path\TimingIssue.txt"
-            Write-Host "cleaing"
-        }
         $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "TimeSyncIssueFinder.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
         Set-Location $fpath
     
@@ -3441,16 +3348,6 @@ Function LogCollector {
     }
 
     Function TimeStampBetween {
-        if ($x1) {
-            $LogPath = $x1
-            $ErrorPath = "$LogPath\ErrorLogs"
-        }
-        else {
-            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            $ErrorPath = "$fpath\ErrorLogs"
-        }
-
         #$date = "2020-11-22"
         $start = Get-Date -format "yyyy-MM-dd HH:mm:ss" "$x3"
         $end = Get-Date -format "yyyy-MM-dd HH:mm:ss" "$x4"
