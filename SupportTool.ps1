@@ -1,6 +1,6 @@
 ﻿#Arthur Ammar Elyas, ammar.elyas@tobiidynavox.com
 #File version 
-$fileversion = "SupportTool v1.6.111_1.ps1"
+$fileversion = "SupportTool v1.6.112.ps1"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -80,6 +80,7 @@ Function selectedscript {
         Return
     }
 }
+
 
 #A1 Uninstalls Progressive Suite
 Function UninstallProgressiveSuite {
@@ -254,7 +255,69 @@ Function UninstallProgressiveSuite {
 #A2 Uninstalls PCEye5 Bundle
 Function UninstallPCEye5Bundle {
 
-    #If first answer equals yes or no
+    <# Create a form and add controls
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Caution"
+    $form.Width = 400
+    $form.Height = 200
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = "Please select the removal level:"
+    $label.Location = New-Object System.Drawing.Point(10, 20)
+    $label.AutoSize = $true
+
+    $checkBox1 = New-Object System.Windows.Forms.CheckBox
+    $checkBox1.Text = "Remove only the installer"
+    $checkBox1.Location = New-Object System.Drawing.Point(10, 50)
+
+    $checkBox2 = New-Object System.Windows.Forms.CheckBox
+    $checkBox2.Text = "Remove files"
+    $checkBox2.Location = New-Object System.Drawing.Point(10, 80)
+
+    $checkBox3 = New-Object System.Windows.Forms.CheckBox
+    $checkBox3.Text = "Remove everything"
+    $checkBox3.Location = New-Object System.Drawing.Point(10, 110)
+
+    $button = New-Object System.Windows.Forms.Button
+    $button.Text = "OK"
+    $button.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $button.Location = New-Object System.Drawing.Point(150, 150)
+
+    # Add controls to the form
+    $form.Controls.Add($label)
+    $form.Controls.Add($checkBox1)
+    $form.Controls.Add($checkBox2)
+    $form.Controls.Add($checkBox3)
+    $form.Controls.Add($button)
+
+    # Show the form and capture the result
+    $result = $form.ShowDialog()
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        if ($checkBox1.Checked) {
+            $Outputbox.AppendText("Starting removal of only the installer...`r`n")
+            # Perform the removal of only the installer
+            # Add your code here for removing the installer
+        }
+        if ($checkBox2.Checked) {
+            $Outputbox.AppendText("Starting removal of files...`r`n")
+            # Perform the removal of files
+            # Add your code here for removing files
+        }
+        if ($checkBox3.Checked) {
+            $Outputbox.AppendText("Starting removal of everything...`r`n")
+            # Perform the removal of everything
+            # Add your code here for removing everything
+        }
+    } else {
+        $Outputbox.AppendText("Action canceled: Remove PCEye5 bundle`r`n")
+        return
+    }
+
+    # Continue with the rest of your function code...
+
+    #>
+        #If first answer equals yes or no
     $answer1 = $wshell.Popup("This will remove all software included in PCEye5 bundle.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
     if ($answer1 -eq 6) {
         $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress..`r`n" )
@@ -612,13 +675,17 @@ Function UninstallWCGP {
 
 
     $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
-    Get-ItemProperty | Where-Object { ($_.Displayname -Match "Windows Control") -or
+    Get-ItemProperty | Where-Object { 
+        ($_.Displayname -Match "Windows Control") -or
         ($_.Displayname -Match "Virtual Remote") -or
         ($_.Displayname -Match "Update Notifier") -or
         ($_.Displayname -Match "Tobii Eye Tracking") -or
         ($_.Displayname -Match "GazeSelection") -or
         ($_.Displayname -Match "Tobii Dynavox Gaze Point") -or
-        ($_.Displayname -Match "Tobii Dynavox Gaze Point Configuration Guide") } | Select-Object Displayname, UninstallString
+        ($_.Displayname -Match "Tobii Dynavox Gaze Point Configuration Guide") -or
+        ($_.Displayname -Match "Tobii Dynavox Windows Control Language Packs") -or 
+        ($_.Displayname -Match "Tobii Dynavox Virtual Remote Drivers")  
+        } | Select-Object Displayname, UninstallString
 
     ForEach ($ver in $TobiiVer) {
         $Uninstname = $ver.Displayname
@@ -666,6 +733,7 @@ Function UninstallWCGP {
         "HKLM:\SOFTWARE\Wow6432Node\Tobii\TobiiUpdater\",
         "HKLM:\SOFTWARE\Wow6432Node\Tobii\Update Notifier\",
         "HKLM:\SOFTWARE\Wow6432Node\Tobii\EyeXOverview",
+        "HKLM:\SOFTWARE\Wow6432Node\Tobii\ProductInformation",
         "HKCU:\Software\Tobii\ExternalNotifications",
         "HKCU:\Software\Tobii\Eye Control Suite",
         "HKCU:\Software\Tobii\EyeX",
@@ -2809,7 +2877,7 @@ Function Diagnostic {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B15 Deploy from v0.3
+#B15 Deploy from v0.31
 Function Deployment {
     #USB namings:
     #"Indi_AD"             "Indi_AB"             "Indi_A_XX"
@@ -2868,18 +2936,11 @@ Function Deployment {
                 $BootName = "$newComparesUSBs" + "B"
             }
             $outputbox.appendtext("Setting deploy name to $DeployName and $BootName`r`n")
-            $paths = @("$env:USERPROFILE\Downloads", "D:\")
+            $paths = "$env:USERPROFILE\Downloads"#, "D:\"
 
             $CheckDownload = (Get-ChildItem -Path $paths | Where-Object { $_.Name -match "$newComparesUSBs" -and $_.Name -match ".7z" }).Name 
-            write-host "CheckDownload:$CheckDownload"
-            write-host "paths:$paths"
-            write-host "newComparesUSBs:$newComparesUSBs"
 
-
-            if ($CheckDownload.count -gt 1) {
-            Write-Host "GREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEET"
-            Write-Host "CheckDownload:$CheckDownload "
-
+            if ($CheckDownload -gt 1) {
                 foreach ($CheckDownloads in $CheckDownload) {
                     #for I-SeriesIOT
                     if (($CheckDownloads -match "IOT") -and ($newComparesUSBs -eq "ISeries_IOT")) {
@@ -2894,18 +2955,14 @@ Function Deployment {
                         $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -eq "$CheckDownloads" }).Name ) -replace ".7z", ""
                         $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -eq "$CheckDownloads" } | Select-Object -expand Fullname | Split-Path
                     }
-            write-host "paths:$paths"
-            write-host "newComparesUSBs:$newComparesUSBs"
+
                 }
             }
             else {
-            Write-Host "ELSEEEEEEEEEEEEEEEEEEEEEEEEEEE"
 
                 $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -match "$newComparesUSBs" }).Name ) -replace ".7z", ""
                 $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -match "$newComparesUSBs" } | Select-Object -expand Fullname | Split-Path
             }
-            write-host "Download$Download"
-            write-host "Download2$Download2"
 
             Set-Location  "C:\Program Files\7-Zip"
             if ($Download) {
@@ -3148,11 +3205,14 @@ Function LogCollector {
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             $ErrorPath = "$fpath\ErrorLogs"
         }
-        $EALogs = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
-                                                    ($_.Name -match "EyeAssistEngine.*.log") -or
-                                                    ($_.Name -match "EyeTrackingSettings.*.log") -or
-                                                    ($_.Name -match "RegionInteraction.*.log")
-        } | Select-Object -expand Fullname
+        $EALogs = if (Test-Path $LogPath) {
+            Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                ($_.Name -match "EyeAssistEngine.*.log") -or
+                ($_.Name -match "EyeTrackingSettings.*.log") -or
+                ($_.Name -match "RegionInteraction.*.log")
+            } | Select-Object -ExpandProperty FullName
+        }
+
         #Creating folder
         if (!(Test-Path "$ErrorPath")) {
             Write-Host "Creating ErrorLogs folder in $ErrorPath .."
