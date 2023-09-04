@@ -1,4 +1,4 @@
-﻿#v1.6.1
+﻿#v1.6.2
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
@@ -30,6 +30,10 @@ Function selectedscript {
     elseif ($DropDownBox.Selecteditem -eq "Remove WC&GP Bundle") {
         $Outputbox.Clear()
         UninstallWCGP
+    }
+    elseif ($DropDownBox.Selecteditem -eq "Remove VC++") {
+        $Outputbox.Clear()
+        VCRedist
     }
     elseif ($DropDownBox.Selecteditem -eq "Remove PCEye Package") {
         $Outputbox.Clear()
@@ -74,7 +78,7 @@ Function selectedscript {
     }
 }
 
-#A0 Uninstalls Progressive Sweet
+#A1 Uninstalls Progressive Sweet
 Function UninstallProgressiveSweet {
     # https://stackoverflow.com/questions/46310266/accessing-dynamically-created-variables-inside-a-powershell-function
     [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
@@ -84,7 +88,9 @@ Function UninstallProgressiveSweet {
 
     $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
     Get-ItemProperty  | Where-Object { 
+        ($_.Displayname -eq "Tobii Dynavox Switcher") -or
         ($_.Displayname -eq "Tobii Dynavox Switcher (Beta)") -or
+        ($_.Displayname -eq "Tobii Dynavox Browse") -or
         ($_.Displayname -eq "Tobii Dynavox Browse (Beta)") -or
         ($_.Displayname -eq "Tobii Dynavox Phone (Beta)") -or
         ($_.Displayname -eq "Tobii Dynavox Talk (Beta)") -or
@@ -132,7 +138,7 @@ Function UninstallProgressiveSweet {
         $form.add_Load($($form_Load))
     } 
     else { 
-        Write-Host "Empty" 
+        $OutputBox.AppendText( "Empty. `r`n" )
     }
     $flowlayoutpanel.BorderStyle = 'FixedSingle'
     $flowlayoutpanel.Location = '48, 13'
@@ -175,15 +181,16 @@ Function UninstallProgressiveSweet {
             $newname1 = $test + "Updater Service (Beta)"
             $newname2 = $test + "Launcher (Beta)"
             $newname3 = $Uninstname + " Updater Service"
-
+            $newname4 = $Uninstname + " Launcher"
+            
             $TobiiVer2 = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
             Get-ItemProperty  | Where-Object { 
                 ($_.Displayname -eq "$Uninstname") -or 
                 ($_.Displayname -eq "$newname1") -or
                 ($_.Displayname -eq "$newname2") -or 
-                ($_.Displayname -eq "$newname3") 
+                ($_.Displayname -eq "$newname3") -or
+                ($_.Displayname -eq "$newname4")
             } | Select-Object Displayname, UninstallString 
-
             foreach ( $tobiivers in $TobiiVer2) {
                 $Displayname = $tobiivers.Displayname
                 $Outputbox.Appendtext( "Removing - " + "$Displayname`r`n" )
@@ -200,7 +207,7 @@ Function UninstallProgressiveSweet {
     $Outputbox.Appendtext( "Done!`r`n" )
 }
 
-#A1 Uninstalls PCEye5 Bundle
+#A2 Uninstalls PCEye5 Bundle
 Function UninstallPCEye5Bundle {
 
     #If first answer equals yes or no
@@ -308,7 +315,7 @@ Function UninstallPCEye5Bundle {
     $Outputbox.Appendtext( "Done!`r`n" )
 }
 
-#A2 Uninstalls ALL Tobii Device Drivers For Windows Bundle
+#A3 Uninstalls ALL Tobii Device Drivers For Windows Bundle
 Function UninstallTobiiDeviceDriversForWindows {
 
     #If first answer equals yes or no
@@ -450,7 +457,7 @@ Function UninstallTobiiDeviceDriversForWindows {
     $Outputbox.appendtext( "Done!`r`n" )
 }
 
-#A3 Uninstalls WC Bundle
+#A4 Uninstalls WC Bundle
 Function UninstallWCGP {
 
     #If first answer equals yes or no
@@ -552,7 +559,112 @@ Function UninstallWCGP {
     $Outputbox.Appendtext( "Done!`r`n" )
 }
 
-#A4 Uninstall PCEye Package
+#A5 Uninstalls VC++ redist
+Function VCRedist {
+    [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+    $form = New-Object System.Windows.Forms.Form
+    $flowlayoutpanel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $buttonOK = New-Object System.Windows.Forms.Button
+
+
+    $x = Get-ChildItem HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ , HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | 
+    Get-ItemProperty  | Where-Object { 
+        ($_.Displayname -like "Microsoft Visual C++ 2005 Redistributable*") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2008 Redistributable *") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2010 * Redistributable *") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2012 Redistributable *") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2013 Redistributable *") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2015* Redistributable *") -or
+        ($_.Displayname -like "Microsoft Visual C++ 2017 Redistributable *")
+    } | Select-Object Displayname, UninstallString  
+
+
+    $uninst = $x.UninstallString    
+
+    $usernames = @($x.Displayname) | Sort-Object -Unique
+    $totalvalues = ($usernames.count)
+
+    $formsize = 85 + (30 * $totalvalues)
+    $flowlayoutsize = 10 + (30 * $totalvalues)
+    $buttonplacement = 40 + (30 * $totalvalues)
+    $script:CheckBoxArray = @()
+    
+    $form_Load = {
+        foreach ($user in $usernames) {
+            $DynamicCheckBox = New-object System.Windows.Forms.CheckBox
+
+            $DynamicCheckBox.Margin = '10, 8, 0, 0'
+            $DynamicCheckBox.Name = $user
+            #changed to make the text look better
+            $DynamicCheckBox.Size = '400, 22' 
+            $DynamicCheckBox.Text = "" + $user
+
+            $DynamicCheckBox.TextAlign = 'MiddleLeft'
+            $flowlayoutpanel.Controls.Add($DynamicCheckBox)
+            $script:CheckBoxArray += $DynamicCheckBox
+        }       
+    }
+    
+    $form.Controls.Add($flowlayoutpanel)
+    $form.Controls.Add($buttonOK)
+    $form.AcceptButton = $buttonOK
+    $form.AutoScaleDimensions = '8, 17'
+    $form.AutoScaleMode = 'Font'
+    $form.ClientSize = "600 , $formsize"
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.Margin = '5, 5, 5, 5'
+    $form.MaximizeBox = $False
+    $form.MinimizeBox = $False
+    $form.Name = 'form1'
+    $form.StartPosition = 'CenterScreen'
+    $form.Text = 'VC++'
+    $form.add_Load($($form_Load))
+
+    $flowlayoutpanel.BorderStyle = 'FixedSingle'
+    $flowlayoutpanel.Location = '48, 13'
+    $flowlayoutpanel.Margin = '4, 4, 4, 4'
+    $flowlayoutpanel.Name = 'flowlayoutpanel1'
+    $flowlayoutpanel.AccessibleName = 'flowlayoutpanel1'
+    $flowlayoutpanel.Size = "500, $flowlayoutsize"
+    $flowlayoutpanel.TabIndex = 1
+    
+    $buttonOK.Anchor = 'Bottom, Right'
+    $buttonOK.DialogResult = 'OK'
+    $buttonOK.Location = "383, $buttonplacement"
+    $buttonOK.Margin = '4, 4, 4, 4'
+    $buttonOK.Name = 'buttonOK'
+    $buttonOK.Size = '100, 30'
+    $buttonOK.TabIndex = 0
+    $buttonOK.Text = '&OK'
+
+    $form.ShowDialog()
+
+    foreach ($cbox in $CheckBoxArray) {
+        if ($cbox.CheckState -eq "Unchecked") {
+           
+        }
+        elseif ($cbox.CheckState -eq "Checked") {
+            #If first answer equals yes or no
+            $answer1 = $wshell.Popup("This will remove selected software.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
+            if ($answer1 -eq 6) {
+                $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress..`r`n" )
+            }
+            elseif ($answer1 -ne 6) {
+                $Outputbox.Appendtext( "Action canceled: Remove Progressive sweet`r`n" )
+                Return
+            }
+            $Uninstname = (Compare-Object -DifferenceObject $x.displayname -ReferenceObject $cbox.Name -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject
+            $tobiivers = Get-ChildItem HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ , HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { ($_.Displayname -eq "$Uninstname") } | Select-Object Displayname, UninstallString
+            $uninst = $tobiivers.UninstallString
+            write-hoste "Removing: $cbox.Name `r`n"
+            cmd /c $uninst "/quiet" "/norestart"
+        }
+    }
+    Remove-Variable checkbox*
+    $Outputbox.Appendtext( "Done!`r`n" )
+}
+
+#A6 Uninstall PCEye Package
 Function UninstallPCEyePackage {
     #Implement functionality. (PCEye package & TGIS on i-series, start with PCEye package
     $answer1 = $wshell.Popup("This will remove all software included in PCEye Package`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
@@ -636,7 +748,7 @@ Function UninstallPCEyePackage {
     $Outputbox.appendtext( "Done!`r`n" )
 }
 
-#A5 Uninstall Communicator
+#A7 Uninstall Communicator
 Function UninstallCommunicator {
     #If first answer equals yes or no
     $answer1 = $wshell.Popup("This will uninstall Communicator. Are you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
@@ -689,7 +801,7 @@ Function UninstallCommunicator {
     $Outputbox.Appendtext( "Done!`r`n" )
 }
 
-#A6 Uninstalls only Compass
+#A8 Uninstalls only Compass
 Function UninstallCompass {
     #If first answer equals yes or no
     $answer1 = $wshell.Popup("This will uninstall Compass. Are you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
@@ -722,7 +834,7 @@ Function UninstallCompass {
     $Outputbox.appendtext( "Done!`r`n" )
 }
 
-#A7 Uninstall TGIS
+#A9 Uninstall TGIS
 Function UninstallTGIS {
     $answer1 = $wshell.Popup("This will ONLY remove Tobii Gaze Interaction Software.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
     if ($answer1 -eq 6) {
@@ -763,7 +875,7 @@ Function UninstallTGIS {
     $Outputbox.appendtext( "Done!`r`n" )
 }
 
-#A8 Function for the option "Remove TGIS calibration profiles #Tobii service is stopped
+#A10 Function for the option "Remove TGIS calibration profiles #Tobii service is stopped
 Function TGISProfilesremove {
 
     $answer1 = $wshell.Popup("This will remove ONLY calibrations for every profile, it will NOT remove the actual profiles. The Gaze Interaction software will close and tobii service will restart.`r`nContinue?", 0, "Caution", 48 + 4)
@@ -804,7 +916,7 @@ Function TGISProfilesremove {
     $outputbox.appendtext( "Done!`r`n" )
 }
 
-#A9
+#A11
 Function DeleteC5User {
     $outputBox.clear()
     $outputBox.appendtext( "Deleting C5 users.`r`n" )
@@ -823,7 +935,7 @@ Function DeleteC5User {
     $outputbox.appendtext("Done `r`n")
 }
 
-#A10 Resets and restart TETC Configuration
+#A12 Resets and restart TETC Configuration
 Function ResetTETC {
     $outputBox.clear()
 
@@ -842,7 +954,7 @@ Function ResetTETC {
         $Processkills = get-process  -Name '*Tobii.Service*', '*Tobii.EyeX.Engine*', '*Tobii.EyeX.Interaction*', '*Tobii.EyeX.Tray*' | Stop-process -force -Passthru -erroraction ignore | Select-Object Processname | Format-table -Hidetableheaders | Out-string
     }
     catch { 
-        Write-Host ( "No processes were found`r`n" )
+        $OutputBox.AppendText( "No processes were found`r`n" )
     }
     foreach ($Processkill in $Processkills) {
         if ($Processkill) {
@@ -883,7 +995,7 @@ Function ResetTETC {
     $Outputbox.Appendtext( "Finished!`r`n" )
 }
 
-#A11
+#A13
 Function BackupGazeInteraction {
     $outputBox.clear()
     $path = ( "C:\ProgramData\Tobii Dynavox\Old Gaze Interaction" )
@@ -904,7 +1016,7 @@ Function BackupGazeInteraction {
     }
 }
 
-#A12 Copy licenses function. If any path to $Licensepaths exists, it will make a folder "Tobii Licenses", copy the licensefolders to the new folder(Does not contain the keys.xml, it is only the folder)
+#A14 Copy licenses function. If any path to $Licensepaths exists, it will make a folder "Tobii Licenses", copy the licensefolders to the new folder(Does not contain the keys.xml, it is only the folder)
 Function Copylicenses {
     $outputBox.clear()
     $licensepaths = ( "C:\ProgramData\Tobii Dynavox\Tobii.Licensing\Windows Control",
@@ -1002,6 +1114,70 @@ Function GetProcesses {
 }
 
 #B3
+Function TTSWversions {
+    $outputBox.clear()
+    $Listapps = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty | Where-Object { 
+        $_.Displayname -like '*Tobii Experience Software*' -or 
+        $_.Displayname -like '*Tobii Device Drivers*' -or 
+        $_.Displayname -like '*Tobii Eye Tracking For Windows*' 
+    } | Select-Object Displayname, Displayversion | Sort-Object Displayname | format-table -HideTableHeaders   | out-string
+    
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    try { 
+        $erroractionpreference = "Stop"
+        $Firmware = .\FWUpgrade32.exe --auto --info-only 
+    }
+    Catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("No Eye Tracker Connected`r`n")
+    }
+
+    $testpath = "C:\Program Files\Tobii\Tobii EyeX"
+    if (Test-path $testpath) { 
+        Set-Location "C:\Program Files\Tobii\Tobii EyeX"
+        $Components = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
+    }
+    else {
+        $outputbox.appendtext("File 1 not exist `r`n")
+    }
+    if ($Firmware -match "IS5_Gibbon_Gaze") {
+        $PDKversion = Get-ChildItem -Path "C:\Program Files\Tobii\Tobii EyeX" -Recurse -file -include "platform_runtime_IS5GIBBONGAZE_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
+
+    }
+    elseif ($Firmware -match "IS5_Large_PC_Eye_5") {
+        $PDKversion = Get-ChildItem -Path "C:\Program Files\Tobii\Tobii EyeX" -Recurse -file -include "platform_runtime_IS5LARGEPCEYE5_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
+    }
+    else {
+        $outputbox.appendtext("File 2 not exist `r`n")
+    }
+
+    $outputbox.appendtext("$Listapps`r`n")
+    foreach ($component in $Components) {
+        $outputbox.appendtext("$component`r`n")
+    }
+
+    foreach ($pdkversions in $PDKversion) {
+        $outputbox.appendtext("$pdkversions`r`n")
+    }
+
+    $ETVandModel = $Firmware | Select-String -Pattern "Firmware version", "Model"
+    foreach ($NewETVandModel in $ETVandModel) {
+        $outputbox.appendtext("$NewETVandModel`r`n")
+    }
+    $ETSN = $Firmware | Select-String -Pattern "tobii-ttp"
+    $ETSN = "$ETSN"
+    $NewETSN = $ETSN -replace "Automatically selected eye tracker", ""
+    $outputbox.appendtext("Eye Tracker S/N: $NewETSN `r`n")
+
+    $driver = Get-WmiObject Win32_PnPSignedDriver | Where-Object { ($_.DeviceName -match "Tobii Hello") -or ($_.DeviceName -match "Tobii Eye Tracker") } | Select-Object DeviceName, DriverVersion
+    foreach ($Drivers in $driver) {
+        $drivername = $Drivers.DeviceName
+        $driverversion = $Drivers.DriverVersion
+        $outputbox.appendtext("$drivername  $driverversion`r`n")
+    }
+    $outputbox.appendtext("Done `r`n")
+}
+#B4
 Function IS5PID {
     $outputBox.clear()
     $outputBox.appendtext( "Checking IS5 PID...`r`n" )
@@ -1019,7 +1195,7 @@ Function IS5PID {
     $outputbox.appendtext("`r`n")
 }
 
-#B4
+#B5
 Function ListDrivers {
     $outputBox.clear()
     $outputBox.appendtext( "Listing all drivers in c:/tobii.txt and here...`r`n" )
@@ -1034,7 +1210,7 @@ Function ListDrivers {
     $outputbox.appendtext("`r`nDone")
 }
 
-#B5
+#B6
 Function ETfw {
     $outputBox.clear()
     $outputBox.appendtext( "Checking Eye tracker Firmware...`r`n" )
@@ -1052,469 +1228,7 @@ Function ETfw {
     $outputbox.appendtext("Done `r`n")
 }
 
-#B6
-Function InstallPDK {
-    $outputBox.clear()
-    $serviceName = "TobiiIS5GIBBONGAZE"
-    if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
-        $outputbox.appendtext("$serviceName Service is already installed`r`n")
-    }
-    else {
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Installing PDK on I-Series`r`n")
-        sc.exe create $serviceName binpath="C:\Windows\System32\DriverStore\FileRepository\is5gibbongaze.inf_amd64_07ff964b2ca8d0e4\platform_runtime_IS5GIBBONGAZE_service.exe" DisplayName= "Tobii Runtime Service" start= auto
-        Start-Service -Name $serviceName -ErrorAction stop
-    }
-    $outputbox.appendtext("Done!")
-}
-
-#B7 Stops all currently active tobii processes
-Function RestartProcesses {
-    $outputBox.clear()
-    $Outputbox.Appendtext( "Restart Services...`r`n")
-    $StopServices = Get-Service -Name '*Tobii*' | Stop-Service -force -Passthru -erroraction ignore | Select-Object Name, Status | Format-table -hidetableheaders | Out-string
-    $Outputbox.Appendtext( "Stopping following Services:$StopServices")
-
-    Start-Sleep -s 3
-    $Processkill = get-process "GazeSelection" , "*TobiiDynavox*", "*Tobii.EyeX*", "Notifier" | Stop-process -force -Passthru -erroraction ignore | Select-Object Processname | Format-table -Hidetableheaders | Out-string
-    $Outputbox.Appendtext( "Stopping following processes:$Processkill")
-
-    #start all processes and services
-    Start-Sleep -s 3
-    try {
-        $StartServices = Start-Service -Name '*Tobii*' -ErrorAction Stop
-        $Outputbox.Appendtext( "Attempting to start following Services:$StartServices `r`n" )
-    }
-    Catch {
-        $Outputbox.Appendtext( "Tobii Service failed to start!`r`n" )
-    }
-    Start-Sleep -s 3
-    try {
-        $StartProcesses = Start-process "C:\Program Files (x86)\Tobii Dynavox\Eye Assist\TobiiDynavox.EyeAssist.Engine.exe"
-        $Outputbox.Appendtext( "Attempting to start Eyeassist:$StartProcesses `r`n" )
-    }
-    Catch {
-        $outputBox.Appendtext( "EyeAssist failed to start!`r`n" )
-    }
-    $outputBox.Appendtext( "Done!" )
-}
-
-#B8
-Function DeleteServices {
-    $outputBox.clear()
-    #If first answer equals yes or no
-    $answer1 = $wshell.Popup("This will remove IS5 services.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
-    if ($answer1 -eq 6) {
-        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
-
-    }
-    elseif ($answer1 -ne 6) {
-        $Outputbox.Appendtext( "Action canceled: Remove services`r`n" )
-        Return
-    }
-    $DeleteServices = Get-Service -Name '*TobiiIS*' , '*TobiiG*' | Stop-Service -Force -passthru -ErrorAction ignore
-    $outputBox.appendtext("Deleting following Services:`r`n$DeleteServices`r`n")
-    foreach ($Service in $DeleteServices) {
-        sc.exe delete $Service
-    }
-    $outputbox.appendtext("Done! `r`n")
-}
-
-#B9
-Function RemoveDrivers {
-    $outputBox.clear()
-    #If first answer equals yes or no
-    $answer1 = $wshell.Popup("This will remove IS5 Drivers.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
-    if ($answer1 -eq 6) {
-        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
-
-    }
-    elseif ($answer1 -ne 6) {
-        $Outputbox.Appendtext( "Action canceled: Remove driver`r`n" )
-        Return
-    }
-    $outputBox.appendtext( "Removing Tobii Drivers...`r`n" )
-    $TobiiVer = Get-WindowsDriver -Online -All | Where-Object { $_.ProviderName -eq "Tobii AB" } | Select-Object Driver
-    ForEach ($ver in $TobiiVer) {
-        pnputil /delete-driver $ver.Driver /force /uninstall
-    }
-    $outputbox.appendtext("`r`nDone")
-}
-
-#B10
-Function resetBOOT {
-    $outputBox.clear()
-    #If first answer equals yes or no
-    $answer1 = $wshell.Popup("This will reset ET to bootloader.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
-    if ($answer1 -eq 6) {
-        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
-
-    }
-    elseif ($answer1 -ne 6) {
-        $Outputbox.Appendtext( "Action canceled: reset Bootloader`r`n" )
-        Return
-    }
-    
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Pinging ET..`r`n")
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    try { 
-        $erroractionpreference = "Stop"
-        $Firmware = .\FWUpgrade32.exe --auto --info-only 
-        $outputBox.appendtext( "$Firmware`r`n" )
-    }
-    Catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("No eye tracker could be found`r`n")
-    }
-    Try {
-        $outputBox.appendtext( "Stopping all Tobii Services...`r`n" )
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-    }
-    Catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("No Service Installed`r`n")
-    }
-    Try {
-        $outputBox.appendtext( "reseting is5 to bootloader...`r`n" )
-        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-        Set-Location $fpath
-        .\CastorUsbCli.exe --reset BOOT
-        $getPID = Get-WmiObject Win32_PnPSignedDriver | Where-Object devicename -Like "*WinUSB Device*" | Select-Object DeviceID
-        if ($getPID) {
-            $outputbox.appendtext("The reset is done. ET PID is now:$getPID")
-        }
-        else {
-            $outputbox.appendtext("Not able to read PID")
-        }
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Starting all services now..")
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-
-    }
-    Catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("No Eye Tracker Connected`r`n")
-    }
-
-
-    $outputbox.appendtext("`r`nDone `r`n")
-}
-
-#B11
-Function FWUpgrade {
-    $outputBox.clear()
-    $outputBox.appendtext( "Upgrade IS4 ET FW...`r`n" )
-    $path = "C:\Program Files (x86)\Tobii\Service"
-    if (Test-Path $path) {
-        Set-Location -path $path
-        $ETInfo = .\FWUpgrade32.exe --auto --info-only
-        $outputbox.appendtext("Connected ET is: $ETInfo")
-        $outputbox.appendtext("`r`n")
-    }
-
-    else {
-        $outputbox.appendtext("No Eye Tracker Connected`r`n")
-    }
-    if ($ETInfo -match "PCE1M") {
-        #PCEye Mini: tobii-ttp://PCE1M-010106010685
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Upgrading PCEye mini FW..")
-        $PCEyeMini = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4pceyemini_firmware_2.27.0-4014648.tobiipkg" --no-version-check
-        $outputbox.appendtext($PCEyeMini)
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Done `r`n")
-    }
-    elseif ($ETInfo -match "IS4_Large_102") {
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Upgrading PCEye Plus FW..")
-        $PCEyePlus = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4large102_firmware_2.27.0-4014648.tobiipkg" --no-version-check
-        $outputbox.appendtext($PCEyePlus)
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Done `r`n")
-    }
-    elseif ($ETInfo -match "IS4_Large_Peripheral") {
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Upgrading 4C FW..")
-        $4C = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4largetobiiperipheral_firmware_2.27.0-4014648.tobiipkg" --no-version-check
-        $outputbox.appendtext($4C)
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Done `r`n")
-    }
-    elseif ($ETInfo -match "IS4_Base_I-series") {
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Upgrading I-Series+ FW..")
-        $ISeries = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii Dynavox\Gaze Interaction\Eye Tracker Firmware Releases\IS4B1\is4iseriesb_firmware_2.9.0.tobiipkg" --no-version-check
-        $outputbox.appendtext($ISeries)
-        $outputbox.appendtext("`r`n")
-        $outputbox.appendtext("Done. Restart ET through Control Center `r`n")
-    }
-    elseif ($ETInfo -match "tet-tcp") {
-        #Tobii Firmware Upgrade Tool Automatically selected eye tracker tet-tcp://172.28.195.1 Failed to open file
-        $outputbox.appendtext("ET model is IS20. Use ET Browser to upgrade. Make sure that Bonjure is installed.")
-    }
-    else {
-        $outputbox.appendtext("No ET connected or ET not supported")
-    }
-}
-
-#B12
-Function BeforeUninstallGG {
-    $outputBox.clear()
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    try { 
-        $erroractionpreference = "Stop"
-        $Firmware = .\FWUpgrade32.exe --auto --info-only 
-    }
-    catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("PDK is not installed`r`n")
-    }
-    $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
-    Get-ItemProperty | Where-Object { ($_.Displayname -Match "Tobii Device Drivers For Windows") } | Select-Object Displayname, DisplayVersion, UninstallString
-
-    if ($Firmware -match "IS5_Gibbon_Gaze" -and $TobiiVer.DisplayVersion -eq "4.49.0.4000" ) { 
-        $outputBox.appendtext( "Running BeforeUninstall.bat script.`r`n" )
-        Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
-        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "BeforeUninstall.bat" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-        Set-Location $fpath
-        $Installer = cmd /c "BeforeUninstall.bat"
-        $Outputbox.appendtext($Installer)
-        $outputbox.appendtext("`r`n")
-        $Outputbox.appendtext( "Done! `r`n" )
-        $outputbox.appendtext("`r`n")
-    } 
-    else { $outputbox.appendtext( "No need to run the script") }
-}
-
-
-#B13
-Function ETConnection {
-    $outputBox.clear()
-    $outputBox.appendtext( "Running ET connection check...`r`n" )
-    $outputBox.appendtext( "Results of output will be stored in C:\Output.txt...`r`n" )
-    $outputbox.appendtext("`r`n")
-    $a = 1
-    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-    $title = 'Loop'
-    $msg = 'Enter number of loops:'
-    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-    Do {
-        Start-sleep -s 1
-        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-        Set-Location $fpath
-        try { 
-            $erroractionpreference = "Stop"
-            $getinfo = cmd /c "FWUpgrade32.exe" --auto --info-only | out-string
-        }
-        catch [System.Management.Automation.RemoteException] {
-            $outputbox.appendtext("No Eye Tracker Connected`r`n")
-        }
-        $time = Get-Date -UFormat %H:%M:%S
-        Add-content C:\Output.txt $time, $getinfo
-        $a
-        $outputbox.appendtext($getinfo)
-        $outputbox.appendtext("`r`n")
-        $a++
-    } while ($a -le $b)
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B14
-Function HBTool {
-    $outputBox.clear()
-    $outputBox.appendtext( "Running BeforeUninstall.bat script.`r`n" )
-    Start-Process -FilePath C:\Users\aes\Desktop\script\BeforeUninstall.bat
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("ACTIVE PROCESSES: `r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B15
-Function EAProfileCreation {
-    $outputBox.clear()
-    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-    $title = 'SMBios tool'
-    $msg = "Press`r`n1 to create profile based on default `r`n2 to create as many profiles and calibrate,`r`n3 to remove all created profiles"
-    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-    
-    if ($b -match "1") { 
-        [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-        $title = 'Profile Name'
-        $msg = "Write a profile name"
-        $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-        Set-Location 'C:\Program Files (x86)\Tobii Dynavox\Eye Assist'
-        .\TobiiDynavox.EyeAssist.Smorgasbord.exe --createprofilewithdefaultcalibration --profile $b
-        $outputbox.appendtext("Profile with $b has been created")
-        $outputbox.appendtext("`r`n")
-
-    }
-    elseif ($b -match "2") {
-        [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-        $a = 1
-        $title = 'Loop'
-        $msg = 'Enter number of loops:'
-        $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-        Set-Location "C:\Program Files (x86)\Tobii Dynavox\Eye Assist"
-        Do {
-            Start-sleep -s 1
-            $a
-            $NewProfile = .\TobiiDynavox.EyeAssist.Smorgasbord.exe --startcreateprofileandcalibrate --profile $a
-            $outputbox.appendtext("`r`nCreating profile with name: $a`r`n")
-            Start-sleep -s 10
-            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-            #Set-Location $fpath
-            try { 
-                $erroractionpreference = "Stop"
-                $getinfo = cmd /c "$fpath\FWUpgrade32.exe" --auto --info-only | out-string
-            }
-            catch [System.Management.Automation.RemoteException] {
-                $outputbox.appendtext( "No Eye Tracker Connected`r`n")
-            }
-            $time = Get-Date -UFormat %H:%M:%S
-            Add-content c:\Output.txt $time, $NewProfile, $getinfo
-            Start-sleep -s 3
-            .\TobiiDynavox.EyeAssist.Engine.exe -x
-            Start-sleep -s 3
-            .\TobiiDynavox.EyeAssist.Engine.exe
-            Start-sleep -s 3
-            $a++
-        } while ($a -le $b)
-    }
-    elseif ($b -match "3") {
-        $Keys = ("HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig\UserProfiles" )
-
-    
-        Remove-item $Key -Recurse -ErrorAction Ignore
-
-
-
-    }
-    else { $outputbox.appendtext("The number you entered is not applicable, try again`r`n") }
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B16
-Function RetrieveUnreleased {
-    $outputBox.clear()
-    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-    $title = 'UN Activate Unreleased tool'
-    $msg = "Press:  `r`n1 to set value to True, `r`n2 to set the value to False, `r`n3 to remove the key"
-    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-    
-    $Check = Get-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name RetrieveUnreleasedVersions -ErrorAction SilentlyContinue
-
-
-    if ($b -match "1") {
-        if ($Check) {
-            Set-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -Value 'True'
-        }
-        else {
-            New-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -PropertyType "String" -Value 'True'
-        }
-        $outputbox.appendtext("Value set to True")
-    }
-    elseif ($b -match "2") {
-        if ($Check) { 
-            Set-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -Value 'False'
-        }
-        else {
-            New-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -PropertyType "String" -Value 'False'
-        }
-        $outputbox.appendtext("Value set to False") 
-    }
-    elseif ($b -match "3") {
-        if ($Check) {
-            Remove-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions"
-            $outputbox.appendtext("String has been removed")
-        }
-    }
-    else { $outputbox.appendtext("N/A") }
-    $outputbox.appendtext("`r`nDone")
-}
-
-#B17
-Function WCF {
-    $outputBox.clear()
-    $outputBox.appendtext( "Checking WCF Endpoint Blocking Software...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "handle.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    Start-Process cmd "/c  `"handle.exe net.pipe & pause `""
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B18
-Function SMBios {
-    $outputBox.clear()
-    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
-    $title = 'SMBios tool'
-    $msg = "Press 1 to run getSMBIOSvalues.cmd, `r`n 2 setName.cmd, `r`n 3 setSerialNumber.cmd, `r`n 4 setVendor.cmd"
-    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "getSMBIOSvalues.cmd" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-
-    if ($b -match "1") { 
-        $getvaluses = Start-Process -FilePath .\getSMBIOSvalues.cmd
-    }
-    elseif ($b -match "2") {
-        $getvaluses = Start-Process -FilePath .\setName.cmd
-    }
-    elseif ($b -match "3") { 
-        $getvaluses = Start-Process -FilePath .\setSerialNumber.cmd
-    }
-    elseif ($b -match "4") { 
-        $getvaluses = Start-Process -FilePath .\setVendor.cmd
-    }
-    else { $outputbox.appendtext("N/A") }
-
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B19
-Function ETSamples {
-    $outputBox.appendtext( "Starting TD region interaction sample...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "TobiiDynavox.RegionInteraction.Sample.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    .\TobiiDynavox.RegionInteraction.Sample.exe
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B20
-Function Diagnostic {
-    $outputBox.appendtext( "Run diagnostics application for Interaction...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tobii.EyeX.Diagnostics.Application.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    .\Tobii.EyeX.Diagnostics.Application.exe
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B21
-Function SETest {
-    $outputBox.appendtext( "running Stream Engine Test...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "tests.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    .\tests.exe
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B22
-Function InternalSE {
-    $outputBox.appendtext( "Starting Stream Engine Sample app...`r`n" )
-    $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "sample.exe" -Recurse).FullName | Split-Path 
-    Set-Location $fpath
-    Start-Process .\sample.exe
-    $outputbox.appendtext("`r`n")
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B23
+#B7
 function GetFrameworkVersionsAndHandleOperation() {
     $outputBox.clear()
     $installedFrameworks = @()
@@ -1599,7 +1313,7 @@ function GetFrameworkVersionsAndHandleOperation() {
 
 function IsKeyPresent([string]$path, [string]$key) {
     if (!(Test-Path $path)) { return $false }
-    if ($null -eq (Get-ItemProperty $path).$key) { return $false }
+    iFf ($null -eq (Get-ItemProperty $path).$key) { return $false }
     #if ((Get-ItemProperty $path).$key -eq $null) { return $false }
     return $true
 }
@@ -1608,7 +1322,7 @@ function GetFrameworkValue([string]$path, [string]$key) {
     return (Get-ItemProperty $path).$key  
 }
 
-#B24
+#B8
 Function BatteryLog {
     $outputBox.clear()
     $outputBox.appendtext( "Starting TobiiDynavox.QA.BatteryMonitor.exe...`r`n" )
@@ -1620,7 +1334,7 @@ Function BatteryLog {
     $outputbox.appendtext("Done `r`n")
 }
 
-#B25
+#B9
 Function TrackStatus {
     $outputBox.clear()
     $outputBox.appendtext( "Showing EA Track Status...`r`n" )
@@ -1641,72 +1355,9 @@ Function TrackStatus {
     $outputbox.appendtext("Done `r`n")
 }
 
-#B26
-Function TTSWversions {
-    $outputBox.clear()
-    $Listapps = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty | Where-Object { 
-        $_.Displayname -like '*Tobii Experience Software*' -or 
-        $_.Displayname -like '*Tobii Device Drivers*' -or 
-        $_.Displayname -like '*Tobii Eye Tracking For Windows*' 
-    } | Select-Object Displayname, Displayversion | Sort-Object Displayname | format-table -HideTableHeaders   | out-string
-    
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
-    try { 
-        $erroractionpreference = "Stop"
-        $Firmware = .\FWUpgrade32.exe --auto --info-only 
-    }
-    Catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("No Eye Tracker Connected`r`n")
-    }
 
-    $testpath = "C:\Program Files\Tobii\Tobii EyeX"
-    if (Test-path $testpath) { 
-        Set-Location "C:\Program Files\Tobii\Tobii EyeX"
-        $Components = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
-    }
-    else {
-        $outputbox.appendtext("File 1 not exist `r`n")
-    }
-    if ($Firmware -match "IS5_Gibbon_Gaze") {
-        $PDKversion = Get-ChildItem -Path "C:\Program Files\Tobii\Tobii EyeX" -Recurse -file -include "platform_runtime_IS5GIBBONGAZE_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
 
-    }
-    elseif ($Firmware -match "IS5_Large_PC_Eye_5") {
-        $PDKversion = Get-ChildItem -Path "C:\Program Files\Tobii\Tobii EyeX" -Recurse -file -include "platform_runtime_IS5LARGEPCEYE5_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
-    }
-    else {
-        $outputbox.appendtext("File 2 not exist `r`n")
-    }
-
-    $outputbox.appendtext("$Listapps`r`n")
-    foreach ($component in $Components) {
-        $outputbox.appendtext("$component`r`n")
-    }
-
-    foreach ($pdkversions in $PDKversion) {
-        $outputbox.appendtext("$pdkversions`r`n")
-    }
-
-    $ETVandModel = $Firmware | Select-String -Pattern "Firmware version", "Model"
-    foreach ($NewETVandModel in $ETVandModel) {
-        $outputbox.appendtext("$NewETVandModel`r`n")
-    }
-    $ETSN = $Firmware | Select-String -Pattern "tobii-ttp"
-    $ETSN = "$ETSN"
-    $NewETSN = $ETSN -replace "Automatically selected eye tracker", ""
-    $outputbox.appendtext("Eye Tracker S/N: $NewETSN `r`n")
-
-    $driver = Get-WmiObject Win32_PnPSignedDriver | Where-Object { ($_.DeviceName -match "Tobii Hello") -or ($_.DeviceName -match "Tobii Eye Tracker") } | Select-Object DeviceName, DriverVersion
-    foreach ($Drivers in $driver) {
-        $drivername = $Drivers.DeviceName
-        $driverversion = $Drivers.DriverVersion
-        $outputbox.appendtext("$drivername  $driverversion`r`n")
-    }
-    $outputbox.appendtext("Done `r`n")
-}
-
-#B27 LogCollector
+#B10 LogCollector
 Function LogCollector {
     $outputBox.clear()
     $outputbox.appendtext("Start `r`n")
@@ -1716,9 +1367,696 @@ Function LogCollector {
     $outputbox.appendtext("Done `r`n")
 }
 
+#B11
+Function WCF {
+    $outputBox.clear()
+    $outputBox.appendtext( "Checking WCF Endpoint Blocking Software...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "handle.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    Start-Process cmd "/c  `"handle.exe net.pipe & pause `""
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B12
+Function BeforeUninstallGG {
+    $outputBox.clear()
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    try { 
+        $erroractionpreference = "Stop"
+        $Firmware = .\FWUpgrade32.exe --auto --info-only 
+    }
+    catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("PDK is not installed`r`n")
+    }
+    $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
+    Get-ItemProperty | Where-Object { ($_.Displayname -Match "Tobii Device Drivers For Windows") } | Select-Object Displayname, DisplayVersion, UninstallString
+
+    if ($Firmware -match "IS5_Gibbon_Gaze" -and $TobiiVer.DisplayVersion -eq "4.49.0.4000" ) { 
+        $outputBox.appendtext( "Running BeforeUninstall.bat script.`r`n" )
+        Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "BeforeUninstall.bat" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+        $Installer = cmd /c "BeforeUninstall.bat"
+        $Outputbox.appendtext($Installer)
+        $outputbox.appendtext("`r`n")
+        $Outputbox.appendtext( "Done! `r`n" )
+        $outputbox.appendtext("`r`n")
+    } 
+    else { $outputbox.appendtext( "No need to run the script") }
+}
+
+#B13 DriverSetup in GG
+Function DriverSetup {
+    $outputBox.clear()
+    $outputbox.appendtext("Start `r`n")
+    $LogPath = "$ENV:USERPROFILE\AppData\Local\Temp"
+    $LogPath2 = "$env:USERPROFILE\Desktop"
+
+    $ErrorPath = "$LogPath2\ErrorLogs"
+    if (!(Test-Path "$ErrorPath")) {
+        $outputbox.appendtext( "Creating ErrorLogs folder..")
+        New-Item -Path "$ErrorPath" -ItemType Directory   
+    }
+    if (!(Test-Path "$ErrorPath\InstallerError.txt") -or !(Test-Path "$ErrorPath\InstallerError2.txt")) {
+        $ErrorFile = New-Item -Path $ErrorPath -Name "InstallerError.txt" -ItemType "file"
+        $ErrorFile2 = New-Item -Path $ErrorPath -Name "InstallerError2.txt" -ItemType "file"
+        $outputbox.appendtext( "creating file")
+    }
+    else {
+        Clear-Content -Path "$ErrorPath\InstallerError.txt"
+        Clear-Content -Path "$ErrorPath\InstallerError2.txt"
+        $outputbox.appendtext( "cleaing")
+    }
+    Set-Location $LogPath
+    $Installercontent = Get-ChildItem "tobii*.log" -Recurse -File | Sort-Object name -desc | Select-Object -expand Fullname
+    foreach ($NewInstallercontent in $Installercontent) {
+        New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+        Get-Content -Path "$NewInstallercontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+        $string = "Executing\s+op\:\s+CustomActionSchedule\(Action\=DisconnectDevices,ActionType\=3073,Source\=BinaryData,Target\=WixQuietExec,CustomActionData\="
+        $content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "$string" -AllMatches | ForEach-Object -Process { $_ -replace ".*CustomActionData=" -replace "-inf.*" } | ForEach-Object -Process { $_ -replace ("`"", "") }
+        add-Content $ErrorFile -value $content9, "`n"
+        Remove-Item "$ErrorPath\temp.txt"
+    }
+
+    if ($Null -eq (Get-Content "$ErrorPath\InstallerError.txt")) {
+        $outputbox.appendtext( "File is Empty")
+    }
+    else {
+        $tester3 = (Get-Content "$ErrorPath\InstallerError.txt") | Where-Object { $_.trim() -ne "" } | set-content "$ErrorPath\InstallerError.txt"
+        $tester3 = (Get-Content "$ErrorPath\InstallerError.txt")
+
+        foreach ($line in $tester3) {
+            $array = $line.split("\")
+            $path = [string]::Join("\", $array[0..($array.length - 2)]) 
+            Add-Content -Path "$ErrorPath\InstallerError2.txt" -Value $path
+        }
+    }
+    #Remove-Item "$ErrorPath\InstallerError.txt"
+
+    if ($Null -eq (Get-Content "$ErrorPath\InstallerError2.txt")) {
+        $OutputBox.AppendText( "File 2 is Empty`r`n")
+    }
+    else {
+        $test4 = Get-Content -Path "$ErrorPath\InstallerError2.txt"
+        foreach ($tests4 in $test4) {
+
+            New-Item -ItemType Directory -Force -Path $tests4
+            Copy-Item -Path ("$env:USERPROFILE\Desktop\SupportTools\R&D\DriverSetup.exe") -Destination $tests4
+        }
+    }
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B14 uninstall_gibbon
+Function uninstall_gibbon {
+    $outputBox.clear()
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    try { 
+        $erroractionpreference = "Stop"
+        $Firmware = .\FWUpgrade32.exe --auto --info-only 
+    }
+    catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("PDK is not installed`r`n")
+    }
+    $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
+    Get-ItemProperty | Where-Object { ($_.Displayname -Match "Tobii Device Drivers For Windows") } | Select-Object Displayname, DisplayVersion, UninstallString
+
+    if ($Firmware -match "IS5_Gibbon_Gaze" -and $TobiiVer.DisplayVersion -eq "4.49.0.4000" ) { 
+        $outputBox.clear()
+        $outputbox.appendtext("Start `r`n")
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "uninstall_gibbon.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+        .\uninstall_gibbon.ps1
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Done `r`n")
+    } 
+    else { $outputbox.appendtext( "No need to run the script") }
+}
+
+#B15 SetDebugLogging
+Function SetDebugLogging {
+    #Instructions
+    #Start PowerShell as admin
+    #Run "Set-ExecutionPolicy Unrestricted"
+    #Run the attached script.
+    #Tobii Service is then restarted and new log levels are set. If you are experiencing issues, please restart Tobii Service.
+    #https://confluence.tobii.intra/pages/viewpage.action?spaceKey=EYEX&title=Changing+log+level
+
+    param (    
+        [switch]$reset,
+        [ValidateSet( 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL')]
+        [string]$MinLevel = 'DEBUG',
+        [ValidateSet( 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL')] 
+        [string]$MaxLevel = 'FATAL')
+
+    if ($reset) {
+        $MinLevel = 'INFO'
+        $MaxLevel = 'ERROR'  
+        $OutputBox.AppendText( "'Reset log levels to  + $MinLevel +  and  + $MaxLevel" )
+        
+    }
+    else {
+        $OutputBox.AppendText( "Set log levels to  + $MinLevel +  and  + $MaxLevel")
+    }   
+    
+    $tobiiInstallPath = "C:\Program Files\Tobii\Tobii EyeX\"
+    $configAppConfig = [IO.Path]::Combine($tobiiInstallPath, 'Tobii.Configuration.exe.config')
+    $interactionAppConfig = [IO.Path]::Combine($tobiiInstallPath, 'Tobii.EyeX.Interaction.exe.config')
+    $EngineAppConfig = [IO.Path]::Combine($tobiiInstallPath, 'Tobii.EyeX.Engine.exe.config')
+    $ServiceAppConfig = [IO.Path]::Combine($tobiiInstallPath, 'Tobii.Service.exe.config')
+
+    $PathToConfigFiles = $configAppConfig, $interactionAppConfig, $EngineAppConfig, $ServiceAppConfig
+
+    foreach ($configFilPath in $PathToConfigFiles) {
+        $appConfig = New-Object XML
+        # load the config file as an xml object
+        $appConfig.Load($configFilPath)
+        $OutputBox.AppendText( "Updating config file  + $configFilPath")
+
+        $minLevelNode = $appConfig.SelectSingleNode("//*[@name='LevelMin']")
+        if ($minLevelNode.Value -ne $MinLevel) {
+            # 'Change: ' + $minLevelNode.name + ' from: ' + $minLevelNode.Value + ' to: ' + $MinLevel 
+            $minLevelNode.Value = $MinLevel           
+        }
+        else {
+            $OutputBox.AppendText( "Required min level is already set, skip..")
+
+        }
+    
+        $maxLevelNode = $appConfig.SelectSingleNode("//*[@name='LevelMax']")
+        if ($maxLevelNode.Value -ne $MaxLevel) {
+            # 'Change: ' + $maxLevelNode.name + ' from: ' + $maxLevelNode.Value + ' to: ' + $MaxLevel 
+            $maxLevelNode.Value = $MaxLevel           
+        }
+        else {
+            $OutputBox.AppendText( "Required max level is already set, skip..")
+        }
+        
+        # save the updated config file
+        $appConfig.Save($configFilPath)
+    }
+    $OutputBox.AppendText( "All config files are updated - DONE")
+
+
+}
+
+#B16 
+Function ModelCheck {
+
+    $TobiiVer1 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\ 
+    $TobiiVer2 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\ 
+    $TobiiVer3 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\
+
+    if ($TobiiVer1.EyeTrackerModel -eq "EM12") {
+        #TBD
+        $OutputBox.AppendText("Eye tracker is TEM12")
+    }
+    elseif ($TobiiVer1.EyeTrackerModel -eq "PCEye5") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is IS514")
+    }
+    elseif ($TobiiVer1.EyeTrackerModel -eq "TDG16") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is TDG16")
+    }
+    elseif ($TobiiVer.ProductType -eq "TDH10") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is TDH10")
+    }
+    elseif ($TobiiVer.ProductType -eq "TDTW7") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is TDTW7")
+    }
+    elseif ($TobiiVer.ProductType -eq "TDG10") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is TDG10")
+    }
+    elseif ($TobiiVer1.ProductType -eq "I-Series" -and $TobiiVer1.ProductModel -eq "I-12+") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is TDI12-xxxxx")
+    }
+    elseif ($TobiiVer3.EyeTrackerModel -eq "PCEye2") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is PCEGO or PCEye Mini")
+    }
+    elseif ($TobiiVer3.EyeTrackerModel -eq "PCEyeExplore") {
+        #checked
+        $OutputBox.AppendText("Eye tracker is PCEyeExplore")
+    }
+    else {
+        $OutputBox.AppendText( "No match," + $TobiiVer1.EyeTrackerModel + "and " + $TobiiVer.ProductType) 
+
+    }
+    #$TobiiVer1
+    #$TobiiVer2
+    #$TobiiVer3
+}
+
+#B17 
+
+
+#B18
+Function InstallPDK {
+    $outputBox.clear()
+    $serviceName = "TobiiIS5GIBBONGAZE"
+    if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
+        $outputbox.appendtext("$serviceName Service is already installed`r`n")
+    }
+    else {
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Installing PDK on I-Series`r`n")
+        sc.exe create $serviceName binpath="C:\Windows\System32\DriverStore\FileRepository\is5gibbongaze.inf_amd64_07ff964b2ca8d0e4\platform_runtime_IS5GIBBONGAZE_service.exe" DisplayName= "Tobii Runtime Service" start= auto
+        Start-Service -Name $serviceName -ErrorAction stop
+    }
+    $outputbox.appendtext("Done!")
+}
+
+#B19 Stops all currently active tobii processes
+Function RestartProcesses {
+    $outputBox.clear()
+    $Outputbox.Appendtext( "Restart Services...`r`n")
+    $StopServices = Get-Service -Name '*Tobii*' | Stop-Service -force -Passthru -erroraction ignore | Select-Object Name, Status | Format-table -hidetableheaders | Out-string
+    $Outputbox.Appendtext( "Stopping following Services:$StopServices")
+
+    Start-Sleep -s 3
+    $Processkill = get-process "GazeSelection" , "*TobiiDynavox*", "*Tobii.EyeX*", "Notifier" | Stop-process -force -Passthru -erroraction ignore | Select-Object Processname | Format-table -Hidetableheaders | Out-string
+    $Outputbox.Appendtext( "Stopping following processes:$Processkill")
+
+    #start all processes and services
+    Start-Sleep -s 3
+    try {
+        $StartServices = Start-Service -Name '*Tobii*' -ErrorAction Stop
+        $Outputbox.Appendtext( "Attempting to start following Services:$StartServices `r`n" )
+    }
+    Catch {
+        $Outputbox.Appendtext( "Tobii Service failed to start!`r`n" )
+    }
+    Start-Sleep -s 3
+    try {
+        $StartProcesses = Start-process "C:\Program Files (x86)\Tobii Dynavox\Eye Assist\TobiiDynavox.EyeAssist.Engine.exe"
+        $Outputbox.Appendtext( "Attempting to start Eyeassist:$StartProcesses `r`n" )
+    }
+    Catch {
+        $outputBox.Appendtext( "EyeAssist failed to start!`r`n" )
+    }
+    $outputBox.Appendtext( "Done!" )
+}
+
+#B20
+Function DeleteServices {
+    $outputBox.clear()
+    #If first answer equals yes or no
+    $answer1 = $wshell.Popup("This will remove IS5 services.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
+    if ($answer1 -eq 6) {
+        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
+
+    }
+    elseif ($answer1 -ne 6) {
+        $Outputbox.Appendtext( "Action canceled: Remove services`r`n" )
+        Return
+    }
+    $DeleteServices = Get-Service -Name '*TobiiIS*' , '*TobiiG*' | Stop-Service -Force -passthru -ErrorAction ignore
+    $outputBox.appendtext("Deleting following Services:`r`n$DeleteServices`r`n")
+    foreach ($Service in $DeleteServices) {
+        sc.exe delete $Service
+    }
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B21
+Function RemoveDrivers {
+    $outputBox.clear()
+    #If first answer equals yes or no
+    $answer1 = $wshell.Popup("This will remove IS5 Drivers.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
+    if ($answer1 -eq 6) {
+        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
+
+    }
+    elseif ($answer1 -ne 6) {
+        $Outputbox.Appendtext( "Action canceled: Remove driver`r`n" )
+        Return
+    }
+    $outputBox.appendtext( "Removing Tobii Drivers...`r`n" )
+    $TobiiVer = Get-WindowsDriver -Online -All | Where-Object { $_.ProviderName -eq "Tobii AB" } | Select-Object Driver
+    ForEach ($ver in $TobiiVer) {
+        pnputil /delete-driver $ver.Driver /force /uninstall
+    }
+    $outputbox.appendtext("`r`nDone")
+}
+
+#B22
+Function resetBOOT {
+    $outputBox.clear()
+    #If first answer equals yes or no
+    $answer1 = $wshell.Popup("This will reset ET to bootloader.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
+    if ($answer1 -eq 6) {
+        $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress.`r`n" )
+
+    }
+    elseif ($answer1 -ne 6) {
+        $Outputbox.Appendtext( "Action canceled: reset Bootloader`r`n" )
+        Return
+    }
+    
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Pinging ET..`r`n")
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    try { 
+        $erroractionpreference = "Stop"
+        $Firmware = .\FWUpgrade32.exe --auto --info-only 
+        $outputBox.appendtext( "$Firmware`r`n" )
+    }
+    Catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("No eye tracker could be found`r`n")
+    }
+    Try {
+        $outputBox.appendtext( "Stopping all Tobii Services...`r`n" )
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
+    }
+    Catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("No Service Installed`r`n")
+    }
+    Try {
+        $outputBox.appendtext( "reseting is5 to bootloader...`r`n" )
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+        .\CastorUsbCli.exe --reset BOOT
+        $getPID = Get-WmiObject Win32_PnPSignedDriver | Where-Object devicename -Like "*WinUSB Device*" | Select-Object DeviceID
+        if ($getPID) {
+            $outputbox.appendtext("The reset is done. ET PID is now:$getPID")
+        }
+        else {
+            $outputbox.appendtext("Not able to read PID")
+        }
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Starting all services now..")
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
+        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
+
+    }
+    Catch [System.Management.Automation.RemoteException] {
+        $outputbox.appendtext("No Eye Tracker Connected`r`n")
+    }
+
+
+    $outputbox.appendtext("`r`nDone `r`n")
+}
+
+#B23
+Function FWUpgrade {
+    $outputBox.clear()
+    $outputBox.appendtext( "Upgrade IS4 ET FW...`r`n" )
+    $path = "C:\Program Files (x86)\Tobii\Service"
+    if (Test-Path $path) {
+        Set-Location -path $path
+        $ETInfo = .\FWUpgrade32.exe --auto --info-only
+        $outputbox.appendtext("Connected ET is: $ETInfo")
+        $outputbox.appendtext("`r`n")
+    }
+
+    else {
+        $outputbox.appendtext("No Eye Tracker Connected`r`n")
+    }
+    if ($ETInfo -match "PCE1M") {
+        #PCEye Mini: tobii-ttp://PCE1M-010106010685
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Upgrading PCEye mini FW..")
+        $PCEyeMini = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4pceyemini_firmware_2.27.0-4014648.tobiipkg" --no-version-check
+        $outputbox.appendtext($PCEyeMini)
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Done `r`n")
+    }
+    elseif ($ETInfo -match "IS4_Large_102") {
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Upgrading PCEye Plus FW..")
+        $PCEyePlus = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4large102_firmware_2.27.0-4014648.tobiipkg" --no-version-check
+        $outputbox.appendtext($PCEyePlus)
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Done `r`n")
+    }
+    elseif ($ETInfo -match "IS4_Large_Peripheral") {
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Upgrading 4C FW..")
+        $4C = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii\Tobii Firmware\is4largetobiiperipheral_firmware_2.27.0-4014648.tobiipkg" --no-version-check
+        $outputbox.appendtext($4C)
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Done `r`n")
+    }
+    elseif ($ETInfo -match "IS4_Base_I-series") {
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Upgrading I-Series+ FW..")
+        $ISeries = .\FWUpgrade32.exe --auto "C:\Program Files (x86)\Tobii Dynavox\Gaze Interaction\Eye Tracker Firmware Releases\IS4B1\is4iseriesb_firmware_2.9.0.tobiipkg" --no-version-check
+        $outputbox.appendtext($ISeries)
+        $outputbox.appendtext("`r`n")
+        $outputbox.appendtext("Done. Restart ET through Control Center `r`n")
+    }
+    elseif ($ETInfo -match "tet-tcp") {
+        #Tobii Firmware Upgrade Tool Automatically selected eye tracker tet-tcp://172.28.195.1 Failed to open file
+        $outputbox.appendtext("ET model is IS20. Use ET Browser to upgrade. Make sure that Bonjure is installed.")
+    }
+    else {
+        $outputbox.appendtext("No ET connected or ET not supported")
+    }
+}
+
+#B24 virtual window_EXPMISC-321
+Function VirtWin {
+    $outputBox.clear()
+    $outputbox.appendtext("Start `r`n")
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "VirtualWindowCoreSDK.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    Start-Process cmd "/c `"VirtualWindowCoreSDK.exe`"" 
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B25
+Function ETConnection {
+    $outputBox.clear()
+    $outputBox.appendtext( "Running ET connection check...`r`n" )
+    $outputBox.appendtext( "Results of output will be stored in C:\Output.txt...`r`n" )
+    $outputbox.appendtext("`r`n")
+    $a = 1
+    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+    $title = 'Loop'
+    $msg = 'Enter number of loops:'
+    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+    Do {
+        Start-sleep -s 1
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+        try { 
+            $erroractionpreference = "Stop"
+            $getinfo = cmd /c "FWUpgrade32.exe" --auto --info-only | out-string
+        }
+        catch [System.Management.Automation.RemoteException] {
+            $outputbox.appendtext("No Eye Tracker Connected`r`n")
+        }
+        $time = Get-Date -UFormat %H:%M:%S
+        Add-content C:\Output.txt $time, $getinfo
+        $a
+        $outputbox.appendtext($getinfo)
+        $outputbox.appendtext("`r`n")
+        $a++
+    } while ($a -le $b)
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B26
+Function HBTool {
+    $outputBox.clear()
+    $outputBox.appendtext( "Running BeforeUninstall.bat script.`r`n" )
+    Start-Process -FilePath C:\Users\aes\Desktop\script\BeforeUninstall.bat
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("ACTIVE PROCESSES: `r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B27
+Function EAProfileCreation {
+    $outputBox.clear()
+    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+    $title = 'SMBios tool'
+    $msg = "Press`r`n1 to create profile based on default `r`n2 to create as many profiles and calibrate,`r`n3 to remove all created profiles"
+    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+    
+    if ($b -match "1") { 
+        [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+        $title = 'Profile Name'
+        $msg = "Write a profile name"
+        $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+        Set-Location 'C:\Program Files (x86)\Tobii Dynavox\Eye Assist'
+        .\TobiiDynavox.EyeAssist.Smorgasbord.exe --createprofilewithdefaultcalibration --profile $b
+        $outputbox.appendtext("Profile with $b has been created")
+        $outputbox.appendtext("`r`n")
+
+    }
+    elseif ($b -match "2") {
+        [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+        $a = 1
+        $title = 'Loop'
+        $msg = 'Enter number of loops:'
+        $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+        Set-Location "C:\Program Files (x86)\Tobii Dynavox\Eye Assist"
+        Do {
+            Start-sleep -s 1
+            $a
+            $NewProfile = .\TobiiDynavox.EyeAssist.Smorgasbord.exe --startcreateprofileandcalibrate --profile $a
+            $outputbox.appendtext("`r`nCreating profile with name: $a`r`n")
+            Start-sleep -s 10
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            #Set-Location $fpath
+            try { 
+                $erroractionpreference = "Stop"
+                $getinfo = cmd /c "$fpath\FWUpgrade32.exe" --auto --info-only | out-string
+            }
+            catch [System.Management.Automation.RemoteException] {
+                $outputbox.appendtext( "No Eye Tracker Connected`r`n")
+            }
+            $time = Get-Date -UFormat %H:%M:%S
+            Add-content c:\Output.txt $time, $NewProfile, $getinfo
+            Start-sleep -s 3
+            .\TobiiDynavox.EyeAssist.Engine.exe -x
+            Start-sleep -s 3
+            .\TobiiDynavox.EyeAssist.Engine.exe
+            Start-sleep -s 3
+            $a++
+        } while ($a -le $b)
+    }
+    elseif ($b -match "3") {
+        $Keys = ("HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig\UserProfiles" )
+        Remove-item $Keys -Recurse -ErrorAction Ignore
+    }
+    else { $outputbox.appendtext("The number you entered is not applicable, try again`r`n") }
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B28
+Function RetrieveUnreleased {
+    $outputBox.clear()
+    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+    $title = 'UN Activate Unreleased tool'
+    $msg = "Press:  `r`n1 to set value to True, `r`n2 to set the value to False, `r`n3 to remove the key"
+    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+    
+    $Check = Get-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name RetrieveUnreleasedVersions -ErrorAction SilentlyContinue
+
+
+    if ($b -match "1") {
+        if ($Check) {
+            Set-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -Value 'True'
+        }
+        else {
+            New-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -PropertyType "String" -Value 'True'
+        }
+        $outputbox.appendtext("Value set to True")
+    }
+    elseif ($b -match "2") {
+        if ($Check) { 
+            Set-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -Value 'False'
+        }
+        else {
+            New-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions" -PropertyType "String" -Value 'False'
+        }
+        $outputbox.appendtext("Value set to False") 
+    }
+    elseif ($b -match "3") {
+        if ($Check) {
+            Remove-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier' -Name "RetrieveUnreleasedVersions"
+            $outputbox.appendtext("String has been removed")
+        }
+    }
+    else { $outputbox.appendtext("N/A") }
+    $outputbox.appendtext("`r`nDone")
+}
+
+#B29 GB2SmbiosTool
+Function GB2SmbiosTool {
+    $outputBox.clear()
+    $outputbox.appendtext("Start `r`n")
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "GB2SmbiosTool.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    Start-Process cmd -Verb runAs "/c `"GB2SmbiosTool.exe`"" 
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B30
+Function SMBios {
+    $outputBox.clear()
+    [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+    $title = 'SMBios tool'
+    $msg = "Press 1 to run getSMBIOSvalues.cmd, `r`n 2 setName.cmd, `r`n 3 setSerialNumber.cmd, `r`n 4 setVendor.cmd"
+    $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "getSMBIOSvalues.cmd" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+
+    if ($b -match "1") { 
+        $getvaluses = Start-Process -FilePath .\getSMBIOSvalues.cmd
+    }
+    elseif ($b -match "2") {
+        $getvaluses = Start-Process -FilePath .\setName.cmd
+    }
+    elseif ($b -match "3") { 
+        $getvaluses = Start-Process -FilePath .\setSerialNumber.cmd
+    }
+    elseif ($b -match "4") { 
+        $getvaluses = Start-Process -FilePath .\setVendor.cmd
+    }
+    else { $outputbox.appendtext("N/A") }
+
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B31
+Function ETSamples {
+    $outputBox.appendtext( "Starting TD region interaction sample...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    .\Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B32
+Function Diagnostic {
+    $outputBox.appendtext( "Run diagnostics application for Interaction...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tobii.EyeX.Diagnostics.Application.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    start-process cmd "/c `"Tobii.EyeX.Diagnostics.Application.exe`""
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B33
+Function SETest {
+    $outputBox.appendtext( "running Stream Engine Test...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "tests.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $fpath
+    .\tests.exe
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
+#B34
+Function InternalSE {
+    $outputBox.appendtext( "Starting Stream Engine Sample app...`r`n" )
+    $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "sample.exe" -Recurse).FullName | Split-Path 
+    Set-Location $fpath
+    Start-Process .\sample.exe
+    $outputbox.appendtext("`r`n")
+    $outputbox.appendtext("Done `r`n")
+}
+
 
 #Windows forms
-$Optionlist = @("Remove Progressive Sweet", "Remove PCEye5 Bundle", "Remove all ET SW", "Remove WC&GP Bundle", "Remove PCEye Package", "Remove Communicator", "Remove Compass", "Remove TGIS only", "Remove TGIS profile calibrations", "Remove all users C5", "Reset TETC", "Backup Gaze Interaction", "Copy License")
+$Optionlist = @("Remove Progressive Sweet", "Remove PCEye5 Bundle", "Remove all ET SW", "Remove WC&GP Bundle", "Remove VC++", "Remove PCEye Package", "Remove Communicator", "Remove Compass", "Remove TGIS only", "Remove TGIS profile calibrations", "Remove all users C5", "Reset TETC", "Backup Gaze Interaction", "Copy License")
 $Form = New-Object System.Windows.Forms.Form
 $Form.Size = New-Object System.Drawing.Size(600, 550)
 $Form.FormBorderStyle = 'Fixed3D'
@@ -1763,8 +2101,8 @@ $Button.Add_Click{ selectedscript }
 
 #B1 Button1 "List Tobii Software"
 $Button1 = New-Object System.Windows.Forms.Button
-$Button1.Location = New-Object System.Drawing.Size(250, 0)
-$Button1.Size = New-Object System.Drawing.Size(160, 30)
+$Button1.Location = New-Object System.Drawing.Size(410, 0)
+$Button1.Size = New-Object System.Drawing.Size(90, 30)
 $Button1.Text = "Tobii Software"
 $Button1.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button1)
@@ -1772,239 +2110,295 @@ $Button1.Add_Click{ ListApps }
 
 #B2 Button2 "List active Tobii processes"
 $Button2 = New-Object System.Windows.Forms.Button
-$Button2.Location = New-Object System.Drawing.Size(250, 30)
-$Button2.Size = New-Object System.Drawing.Size(160, 30)
+$Button2.Location = New-Object System.Drawing.Size(410, 30)
+$Button2.Size = New-Object System.Drawing.Size(90, 30)
 $Button2.Text = "Active Process+Service"
 $Button2.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button2)
 $Button2.Add_Click{ GetProcesses }
 
-#B3 Button3 "Check IS5 PID"
+#B3 Button3 "TTSWversions"
 $Button3 = New-Object System.Windows.Forms.Button
-$Button3.Location = New-Object System.Drawing.Size(250, 60)
-$Button3.Size = New-Object System.Drawing.Size(160, 30)
-$Button3.Text = "List IS5 PID"
+$Button3.Location = New-Object System.Drawing.Size(410, 60)
+$Button3.Size = New-Object System.Drawing.Size(90, 30)
+$Button3.Text = "TT SW versions"
 $Button3.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button3)
-$Button3.Add_Click{ IS5PID }
+$Button3.Add_Click{ TTSWversions }
 
-#B4 Button4 "List Tobii Drivers"
+#B4 Button4 "Check IS5 PID"
 $Button4 = New-Object System.Windows.Forms.Button
-$Button4.Location = New-Object System.Drawing.Size(250, 90)
-$Button4.Size = New-Object System.Drawing.Size(160, 30)
-$Button4.Text = "Tobii Drivers"
+$Button4.Location = New-Object System.Drawing.Size(410, 90)
+$Button4.Size = New-Object System.Drawing.Size(90, 30)
+$Button4.Text = "List IS5 PID"
 $Button4.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button4)
-$Button4.Add_Click{ ListDrivers }
+$Button4.Add_Click{ IS5PID }
 
-#B5 Button5 "ET fw"
+#B5 Button5 "List Tobii Drivers"
 $Button5 = New-Object System.Windows.Forms.Button
-$Button5.Location = New-Object System.Drawing.Size(250, 120)
-$Button5.Size = New-Object System.Drawing.Size(160, 30)
-$Button5.Text = "ET firmware"
+$Button5.Location = New-Object System.Drawing.Size(410, 120)
+$Button5.Size = New-Object System.Drawing.Size(90, 30)
+$Button5.Text = "Tobii Drivers"
 $Button5.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button5)
-$Button5.Add_Click{ ETfw }
+$Button5.Add_Click{ ListDrivers }
 
-#B6 Button6 "Install PDK"
+#B6 Button6 "ET fw"
 $Button6 = New-Object System.Windows.Forms.Button
-$Button6.Location = New-Object System.Drawing.Size(410, 0)
-$Button6.Size = New-Object System.Drawing.Size(160, 30)
-$Button6.Text = "Install PDK"
+$Button6.Location = New-Object System.Drawing.Size(410, 150)
+$Button6.Size = New-Object System.Drawing.Size(90, 30)
+$Button6.Text = "ET firmware"
 $Button6.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button6)
-$Button6.Add_Click{ InstallPDK }
+$Button6.Add_Click{ ETfw }
 
-#B7 Button7 Restart Services
+#B7 Button7 ".NET version"
 $Button7 = New-Object System.Windows.Forms.Button
-$Button7.Location = New-Object System.Drawing.Size(410, 30)
-$Button7.Size = New-Object System.Drawing.Size(160, 30)
-$Button7.Text = "Restart Services"
+$Button7.Location = New-Object System.Drawing.Size(410, 180)
+$Button7.Size = New-Object System.Drawing.Size(90, 30)
+$Button7.Text = ".NET v."
 $Button7.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button7)
-$Button7.Add_Click{ RestartProcesses }
+$Button7.Add_Click{ GetFrameworkVersionsAndHandleOperation }
 
-#B8 Button8 "Delete services"
+#B8 Button8 "BatteryLog"
 $Button8 = New-Object System.Windows.Forms.Button
-$Button8.Location = New-Object System.Drawing.Size(410, 60)
-$Button8.Size = New-Object System.Drawing.Size(160, 30)
-$Button8.Text = "Delete Services"
+$Button8.Location = New-Object System.Drawing.Size(410, 210)
+$Button8.Size = New-Object System.Drawing.Size(90, 30)
+$Button8.Text = "Battery Log"
 $Button8.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button8)
-$Button8.Add_Click{ DeleteServices }
+$Button8.Add_Click{ BatteryLog }
 
-#B9 Button9 "Remove Drivers"
+#B9 Button9 "Show Track status"
 $Button9 = New-Object System.Windows.Forms.Button
-$Button9.Location = New-Object System.Drawing.Size(410, 90)
-$Button9.Size = New-Object System.Drawing.Size(160, 30)
-$Button9.Text = "Delete Drivers"
+$Button9.Location = New-Object System.Drawing.Size(410, 240)
+$Button9.Size = New-Object System.Drawing.Size(90, 30)
+$Button9.Text = "Show/hide Track S."
 $Button9.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button9)
-$Button9.Add_Click{ RemoveDrivers }
+$Button9.Add_Click{ TrackStatus }
 
-#B10 Button10 "Reset IS5 to bootloader"
+#B10 Button10 "LogCollector"
 $Button10 = New-Object System.Windows.Forms.Button
-$Button10.Location = New-Object System.Drawing.Size(410, 120)
-$Button10.Size = New-Object System.Drawing.Size(160, 30)
-$Button10.Text = "Reset ET BOOT"
+$Button10.Location = New-Object System.Drawing.Size(410, 270)
+$Button10.Size = New-Object System.Drawing.Size(90, 30)
+$Button10.Text = "LogCollector"
 $Button10.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button10)
-$Button10.Add_Click{ resetBOOT }
+$Button10.Add_Click{ LogCollector }
 
-#B11 Button11 "FW Upgrade"
+#B11 Button11 "WCF"
 $Button11 = New-Object System.Windows.Forms.Button
-$Button11.Location = New-Object System.Drawing.Size(410, 150)
-$Button11.Size = New-Object System.Drawing.Size(160, 30)
-$Button11.Text = "FW Upgrade"
+$Button11.Location = New-Object System.Drawing.Size(410, 300)
+$Button11.Size = New-Object System.Drawing.Size(90, 30)
+$Button11.Text = "WCF"
 $Button11.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button11)
-$Button11.Add_Click{ FWUpgrade }
+$Button11.Add_Click{ WCF }
 
 #B12 Button12 "Before Uninstall GG"
 $Button12 = New-Object System.Windows.Forms.Button
-$Button12.Location = New-Object System.Drawing.Size(410, 180)
-$Button12.Size = New-Object System.Drawing.Size(160, 30)
-$Button12.Text = "Before Uninstall GG"
+$Button12.Location = New-Object System.Drawing.Size(410, 330)
+$Button12.Size = New-Object System.Drawing.Size(90, 30)
+$Button12.Text = "BeforeUnins.G"
 $Button12.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button12)
 $Button12.Add_Click{ BeforeUninstallGG }
 
-#B13 Button13 "Check ET connection through Service"
+#B13 Button13 "DriverSetup"
 $Button13 = New-Object System.Windows.Forms.Button
-$Button13.Location = New-Object System.Drawing.Size(410, 210)
-$Button13.Size = New-Object System.Drawing.Size(160, 30)
-$Button13.Text = "Check ET connection"
+$Button13.Location = New-Object System.Drawing.Size(410, 360)
+$Button13.Size = New-Object System.Drawing.Size(90, 30)
+$Button13.Text = "DriverSetupGG"
 $Button13.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button13)
-$Button13.Add_Click{ ETConnection }
+$Button13.Add_Click{ DriverSetup }
 
-#B14 Button14 "Run GG HB_tool"
+#B14 Button14 "uninstall_gibbon"
 $Button14 = New-Object System.Windows.Forms.Button
-$Button14.Location = New-Object System.Drawing.Size(410, 240)
-$Button14.Size = New-Object System.Drawing.Size(160, 30)
-$Button14.Text = "HB-tool GG"
+$Button14.Location = New-Object System.Drawing.Size(410, 390)
+$Button14.Size = New-Object System.Drawing.Size(90, 30)
+$Button14.Text = "UninstallGG"
 $Button14.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button14)
-$Button14.Add_Click{ HBTool }
+$Button14.Add_Click{ uninstall_gibbon }
 
-#B15 Button15 "EAProfileCreation"
+#B15 Button15 "SetDebugLogging"
 $Button15 = New-Object System.Windows.Forms.Button
-$Button15.Location = New-Object System.Drawing.Size(410, 270)
-$Button15.Size = New-Object System.Drawing.Size(160, 30)
-$Button15.Text = "EA Profile Creation"
+$Button15.Location = New-Object System.Drawing.Size(410, 420)
+$Button15.Size = New-Object System.Drawing.Size(90, 30)
+$Button15.Text = "SetDebugLog"
 $Button15.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button15)
-$Button15.Add_Click{ EAProfileCreation }
+$Button15.Add_Click{ SetDebugLogging }
 
-#B16 Button16 "RetrieveUnreleased"
+#B16 Button16 "ModelCheck"
 $Button16 = New-Object System.Windows.Forms.Button
-$Button16.Location = New-Object System.Drawing.Size(410, 300)
-$Button16.Size = New-Object System.Drawing.Size(160, 30)
-$Button16.Text = "RetrieveUnreleased"
+$Button16.Location = New-Object System.Drawing.Size(410, 450)
+$Button16.Size = New-Object System.Drawing.Size(90, 30)
+$Button16.Text = "ETModel Check"
 $Button16.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button16)
-$Button16.Add_Click{ RetrieveUnreleased }
+$Button16.Add_Click{ ModelCheck }
 
-#B17 Button17 "WCF"
-$Button17 = New-Object System.Windows.Forms.Button
-$Button17.Location = New-Object System.Drawing.Size(410, 330)
-$Button17.Size = New-Object System.Drawing.Size(160, 30)
-$Button17.Text = "WCF"
-$Button17.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
-$form.Controls.add($Button17)
-$Button17.Add_Click{ WCF }
-
-#B18 Button18 "SMBios"
+#B18 Button18 "Install PDK"
 $Button18 = New-Object System.Windows.Forms.Button
-$Button18.Location = New-Object System.Drawing.Size(410, 360)
-$Button18.Size = New-Object System.Drawing.Size(160, 30)
-$Button18.Text = "SMBIOS"
+$Button18.Location = New-Object System.Drawing.Size(500, 0)
+$Button18.Size = New-Object System.Drawing.Size(90, 30)
+$Button18.Text = "Install PDK"
 $Button18.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button18)
-$Button18.Add_Click{ SMBios }
+$Button18.Add_Click{ InstallPDK }
 
-#B19 Button19 "ETSamples"
+#B19 Button19 Restart Services
 $Button19 = New-Object System.Windows.Forms.Button
-$Button19.Location = New-Object System.Drawing.Size(410, 390)
-$Button19.Size = New-Object System.Drawing.Size(160, 30)
-$Button19.Text = "TD RI Samples"
+$Button19.Location = New-Object System.Drawing.Size(500, 30)
+$Button19.Size = New-Object System.Drawing.Size(90, 30)
+$Button19.Text = "RestartServices"
 $Button19.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button19)
-$Button19.Add_Click{ ETSamples }
+$Button19.Add_Click{ RestartProcesses }
 
-#B20 Button20 "Diagnostic"
+#B20 Button20 "Delete services"
 $Button20 = New-Object System.Windows.Forms.Button
-$Button20.Location = New-Object System.Drawing.Size(410, 420)
-$Button20.Size = New-Object System.Drawing.Size(160, 30)
-$Button20.Text = "RIDiagnostics"
+$Button20.Location = New-Object System.Drawing.Size(500, 60)
+$Button20.Size = New-Object System.Drawing.Size(90, 30)
+$Button20.Text = "Delete Services"
 $Button20.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button20)
-$Button20.Add_Click{ Diagnostic }
+$Button20.Add_Click{ DeleteServices }
 
-#B21 Button21 "StreamEngineTest"
+#B21 Button21 "Remove Drivers"
 $Button21 = New-Object System.Windows.Forms.Button
-$Button21.Location = New-Object System.Drawing.Size(410, 450)
-$Button21.Size = New-Object System.Drawing.Size(160, 30)
-$Button21.Text = "SE-Test"
+$Button21.Location = New-Object System.Drawing.Size(500, 90)
+$Button21.Size = New-Object System.Drawing.Size(90, 30)
+$Button21.Text = "Delete Drivers"
 $Button21.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button21)
-$Button21.Add_Click{ SETest }
+$Button21.Add_Click{ RemoveDrivers }
 
-#B22 Button22 "InternalSE"
+#B22 Button22 "Reset IS5 to bootloader"
 $Button22 = New-Object System.Windows.Forms.Button
-$Button22.Location = New-Object System.Drawing.Size(410, 480)
-$Button22.Size = New-Object System.Drawing.Size(160, 30)
-$Button22.Text = "Internal SE"
+$Button22.Location = New-Object System.Drawing.Size(500, 120)
+$Button22.Size = New-Object System.Drawing.Size(90, 30)
+$Button22.Text = "ResetETBOOT"
 $Button22.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button22)
-$Button22.Add_Click{ InternalSE }
+$Button22.Add_Click{ resetBOOT }
 
-#B23 Button23 ".NET version"
+#B23 Button23 "FW Upgrade"
 $Button23 = New-Object System.Windows.Forms.Button
-$Button23.Location = New-Object System.Drawing.Size(10, 110)
-$Button23.Size = New-Object System.Drawing.Size(110, 30)
-$Button23.Text = ".NET v."
+$Button23.Location = New-Object System.Drawing.Size(500, 150)
+$Button23.Size = New-Object System.Drawing.Size(90, 30)
+$Button23.Text = "FW Upgrade"
 $Button23.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button23)
-$Button23.Add_Click{ GetFrameworkVersionsAndHandleOperation }
+$Button23.Add_Click{ FWUpgrade }
 
-#B24 Button24 "BatteryLog"
+#B24 Button24 "VirtWin"
 $Button24 = New-Object System.Windows.Forms.Button
-$Button24.Location = New-Object System.Drawing.Size(120, 110)
-$Button24.Size = New-Object System.Drawing.Size(110, 30)
-$Button24.Text = "Battery Log"
+$Button24.Location = New-Object System.Drawing.Size(500, 180)
+$Button24.Size = New-Object System.Drawing.Size(90, 30)
+$Button24.Text = "VirtWin TT"
 $Button24.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button24)
-$Button24.Add_Click{ BatteryLog }
+$Button24.Add_Click{ VirtWin }
 
-#B25 Button25 "Show Track status"
+#B25 Button25 "Check ET connection through Service"
 $Button25 = New-Object System.Windows.Forms.Button
-$Button25.Location = New-Object System.Drawing.Size(120, 80)
-$Button25.Size = New-Object System.Drawing.Size(110, 30)
-$Button25.Text = "Show/hide Track S."
+$Button25.Location = New-Object System.Drawing.Size(500, 210)
+$Button25.Size = New-Object System.Drawing.Size(90, 30)
+$Button25.Text = "Check ET con."
 $Button25.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button25)
-$Button25.Add_Click{ TrackStatus }
+$Button25.Add_Click{ ETConnection }
 
-#B26 Button26 "TTSWversions"
+#B26 Button26 "Run GG HB_tool"
 $Button26 = New-Object System.Windows.Forms.Button
-$Button26.Location = New-Object System.Drawing.Size(120, 50)
-$Button26.Size = New-Object System.Drawing.Size(110, 30)
-$Button26.Text = "TT SW versions"
+$Button26.Location = New-Object System.Drawing.Size(500, 240)
+$Button26.Size = New-Object System.Drawing.Size(90, 30)
+$Button26.Text = "HB-tool GG"
 $Button26.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button26)
-$Button26.Add_Click{ TTSWversions }
+$Button26.Add_Click{ HBTool }
 
-#B27 Button27 "LogCollector"
+#B27 Button27 "EAProfileCreation"
 $Button27 = New-Object System.Windows.Forms.Button
-$Button27.Location = New-Object System.Drawing.Size(10, 80)
-$Button27.Size = New-Object System.Drawing.Size(110, 30)
-$Button27.Text = "LogCollector"
+$Button27.Location = New-Object System.Drawing.Size(500, 270)
+$Button27.Size = New-Object System.Drawing.Size(90, 30)
+$Button27.Text = "EA Profile"
 $Button27.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button27)
-$Button27.Add_Click{ LogCollector }
+$Button27.Add_Click{ EAProfileCreation }
+
+#B28 Button28 "RetrieveUnreleased"
+$Button28 = New-Object System.Windows.Forms.Button
+$Button28.Location = New-Object System.Drawing.Size(500, 300)
+$Button28.Size = New-Object System.Drawing.Size(90, 30)
+$Button28.Text = "RetrieveUN"
+$Button28.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button28)
+$Button28.Add_Click{ RetrieveUnreleased }
+
+#B29 Button29 "GB2SmbiosTool"
+$Button29 = New-Object System.Windows.Forms.Button
+$Button29.Location = New-Object System.Drawing.Size(500, 330)
+$Button29.Size = New-Object System.Drawing.Size(90, 30)
+$Button29.Text = "SmbiosTool3"
+$Button29.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button29)
+$Button29.Add_Click{ GB2SmbiosTool }
+
+#B30 Button30 "SMBios"
+$Button30 = New-Object System.Windows.Forms.Button
+$Button30.Location = New-Object System.Drawing.Size(500, 360)
+$Button30.Size = New-Object System.Drawing.Size(90, 30)
+$Button30.Text = "SMBIOS"
+$Button30.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button30)
+$Button30.Add_Click{ SMBios }
+
+#B31 Button31 "ETSamples"
+$Button31 = New-Object System.Windows.Forms.Button
+$Button31.Location = New-Object System.Drawing.Size(500, 390)
+$Button31.Size = New-Object System.Drawing.Size(90, 30)
+$Button31.Text = "TD RI Samples"
+$Button31.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button31)
+$Button31.Add_Click{ ETSamples }
+
+#B32 Button32 "Diagnostic"
+$Button32 = New-Object System.Windows.Forms.Button
+$Button32.Location = New-Object System.Drawing.Size(500, 420)
+$Button32.Size = New-Object System.Drawing.Size(90, 30)
+$Button32.Text = "RIDiagnostics"
+$Button32.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button32)
+$Button32.Add_Click{ Diagnostic }
+
+#B33 Button33 "StreamEngineTest"
+$Button33 = New-Object System.Windows.Forms.Button
+$Button33.Location = New-Object System.Drawing.Size(500, 450)
+$Button33.Size = New-Object System.Drawing.Size(90, 30)
+$Button33.Text = "SE-Test"
+$Button33.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button33)
+$Button33.Add_Click{ SETest }
+
+#B34 Button34 "InternalSE"
+$Button34 = New-Object System.Windows.Forms.Button
+$Button34.Location = New-Object System.Drawing.Size(500, 480)
+$Button34.Size = New-Object System.Drawing.Size(90, 30)
+$Button34.Text = "Internal SE"
+$Button34.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button34)
+$Button34.Add_Click{ InternalSE }
+
+
 
 #Form name + activate form.
-$Form.Text = "Support Tool 1.6.1"
+$Form.Text = "Support Tool 1.6.2"
 $Form.Add_Shown( { $Form.Activate() })
 $Form.ShowDialog()
