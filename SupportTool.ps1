@@ -1,6 +1,5 @@
 ﻿#File version 
-$fileversion = "SupportTool v1.6.7"
-$LogCollectorTool = "LogCollectorTool_V0.9.ps1"
+$fileversion = "SupportTool v1.6.8"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -608,7 +607,9 @@ Function UninstallPCEye5Bundle {
         "HKCU:\Software\Tobii Dynavox\Computer Control", #3
         "HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Computer Control Updater Service", #4
         "HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier",
-        "HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Computer Control Updater Service Review")
+        "HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Computer Control Updater Service Review",
+        "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation"
+    )
 
     foreach ($Key in $Keys) {
         if (test-path $Key) {
@@ -620,7 +621,9 @@ Function UninstallPCEye5Bundle {
         Remove-ItemProperty -path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation" -Name "EyeTrackerModel"
     }
 
-    Get-Item -Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation"
+    if (Test-Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation") { 
+        Get-Item -Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation"
+    }
 
     if (Test-Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\EyeTrackerModel") {
         Remove-ItemProperty -path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation" -Name "EyeTrackerModel"
@@ -1435,27 +1438,13 @@ Function Listapps {
     if ($fpath.count -gt 0) {
         Set-Location $fpath
     }
-    else { 
-        $outputbox.appendtext("File $fileversion is missing!`r`n" )
-    }
-    $infofolder = "$fpath\infofolder"
-    if (!(Test-Path "$infofolder")) {
-        New-Item -Path "$infofolder" -ItemType Directory  
-    }
 
-    #Creating files
-    if (!(Test-Path "$infofolder\SoftwareVersions.txt")) {
-        New-Item -Path $infofolder -Name "SoftwareVersions.txt" -ItemType "file"
-    }
-    else {
-        Clear-Content -Path "$infofolder\SoftwareVersions.txt"
-    }
     $Outputbox.Appendtext( "Listing Tobii installed versions...`r`n" )
-    $Outputbox.Appendtext( "Saving info in $infofolder\SoftwareVersions.txt`r`n" )
-	
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
+															 
+    #Getting FW version
+    $fpathfw = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpathfw.count -gt 0) {
+        Set-Location $fpathfw
         try { 
             $erroractionpreference = "Stop"
             $Firmware = .\FWUpgrade32.exe --auto --info-only 
@@ -1467,28 +1456,30 @@ Function Listapps {
     else { 
         $outputbox.appendtext("File FWUpgrade32.exe is missing!`r`n" )
     }
-	
+    $ETVandModels = $Firmware | Select-String -Pattern "Firmware version", "Model"
+    $ETSN = $Firmware | Select-String -Pattern "tobii-ttp"
+    $ETSN = "$ETSN"
+    $NewETSN = $ETSN -replace "Automatically selected eye tracker", ""
+
+    #Gettings all Tobii SW versions
     $Listapps = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, 
-    HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\,
-    HKLM:\Software\WOW6432Node\Tobii\ |
-    Get-ItemProperty | Where-Object { $_.Publisher -like '*Tobii*' } | Select-Object Displayname, Displayversion | Sort-Object Displayname | format-table -HideTableHeaders | out-string
+    HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\, 
+    HKLM:\Software\WOW6432Node\Tobii\ | Get-ItemProperty | Where-Object { 
+        $_.Publisher -like '*Tobii*' -or 
+        $_.Displayname -like '*Tobii Experience Software*' -or
+        $_.Displayname -like '*Tobii Device Drivers*' -or
+        $_.Displayname -like '*Tobii Eye Tracking For Windows*'
+    } | Select-Object Displayname, Displayversion | Sort-Object Displayname | format-table -HideTableHeaders | out-string
     
-    $TechListapps = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, 
-    HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | 
-    Get-ItemProperty | Where-Object { 
-        $_.Displayname -like '*Tobii Experience Software*' -or 
-        $_.Displayname -like '*Tobii Device Drivers*' -or 
-        $_.Displayname -like '*Tobii Eye Tracking For Windows*' 
-    } | Select-Object Displayname, Displayversion | Sort-Object Displayname | format-table -HideTableHeaders   | out-string    
-	
+    #Gettings all TD windows app versions
     $Listwindowsapp = Get-AppxPackage | Where-Object { ($_.Publisher -like '*Tobii*') -or
         ($_.Name -like '*Snap*') } | Select-Object name , version | format-table -HideTableHeaders | out-string
-	
-    $testpath = "C:\Program Files\Tobii\Tobii EyeX"
-    #Fix installerpackageremovaltool.exe in driver setup folder
-    if (Test-path $testpath) { 
+
+    #Getting SW for TT components
+    $EyeXpath = "C:\Program Files\Tobii\Tobii EyeX"
+    if (Test-path $EyeXpath) { 
         Set-Location "C:\Program Files\Tobii\Tobii EyeX"
-        $Components = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
+        $TTComponents = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
     }
 
     if ($Firmware -match "IS5_Gibbon_Gaze") {
@@ -1497,226 +1488,389 @@ Function Listapps {
     }
     elseif ($Firmware -match "IS5_Large_PC_Eye_5") {
         $PDKversions = Get-ChildItem -Path "C:\Program Files\Tobii\Tobii EyeX" -Recurse -file -include "platform_runtime_IS5LARGEPCEYE5_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
-    }	
-    $ETVandModels = $Firmware | Select-String -Pattern "Firmware version", "Model"
-    $ETSN = $Firmware | Select-String -Pattern "tobii-ttp"
-    $ETSN = "$ETSN"
-    $NewETSN = $ETSN -replace "Automatically selected eye tracker", ""
+    }
 
     $outputBox.AppendText( "TOBII INSTALLED SOFTWARE:$Listapps`r`n" )
-    Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "TOBII INSTALLED SOFTWARE:$Listapps"
+																									
 
-    if ($Listwindowsapp) {
-        $outputBox.AppendText( "TOBII WINDOWS STORE APPS:$Listwindowsapp`r`n" )
+						  
+    $outputBox.AppendText( "TOBII WINDOWS STORE APPS:$Listwindowsapp`r`n" )
+    $outputbox.appendtext("$TTcomponents`r`n")
+    $outputbox.appendtext("$PDKversions`r`n")
+    $outputbox.appendtext("$ETVandModels`r`n")
+    $outputbox.appendtext("Eye Tracker S/N: $NewETSN `r`n")
+
+    $GetProcess = get-process "*GazeSelection*", "*Tobii*" | Select-Object Processname | Format-table -hidetableheaders | Out-string
+    $GetServices = Get-Service -Name '*Tobii*' | Select-Object Name, Status | Format-table -hidetableheaders | Out-string
+
+    if ($GetProcess) {
+        $outputbox.appendtext("`r`nACTIVE PROCESSES:$GetProcess`r`n")
+    }
+    if ($GetServices) {
+        $outputbox.appendtext("`r`nACTIVE Services:$GetServices`r`n")
+    }
+    #If second answer equals yes or no
+    $answer2 = $wshell.Popup("Do you want to save info to $infofolder?", 0, "Caution", 48 + 4)
+    if ($answer2 -eq 6) { 
+        #Creating info folder
+        $infofolder = "$fpath\infofolder"
+        $Outputbox.Appendtext( "Saving info in $infofolder`r`n" )
+        if (!(Test-Path "$infofolder")) {
+            New-Item -Path "$infofolder" -ItemType Directory 
+        }
+        #Creating files
+        if (!(Test-Path "$infofolder\SoftwareVersions.txt") -or
+            !(Test-Path "$infofolder\HardwareReport.txt") -or 
+            !(Test-Path "$infofolder\EyeTrackerReport.txt") -or
+            !(Test-Path "$infofolder\DeviceInfo.txt") -or
+            !(Test-Path "$infofolder\systemDrivers.txt")) {
+            New-Item -Path $infofolder -Name "SoftwareVersions.txt" -ItemType "file"
+            New-Item -Path $infofolder -Name "HardwareReport.txt" -ItemType "file"
+            New-Item -Path $infofolder -Name "EyeTrackerReport.txt" -ItemType "file"
+            New-Item -Path $infofolder -Name "DeviceInfo.txt" -ItemType "file"
+            New-Item -Path $infofolder -Name "systemDrivers.txt" -ItemType "file"
+        }
+        else {
+            Clear-Content -Path "$infofolder\SoftwareVersions.txt"
+            Clear-Content -Path "$infofolder\HardwareReport.txt"
+            Clear-Content -Path "$infofolder\EyeTrackerReport.txt"
+            Clear-Content -Path "$infofolder\DeviceInfo.txt"
+            Clear-Content -Path "$infofolder\systemDrivers.txt"
+        }
+    
+        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "TOBII INSTALLED SOFTWARE:$Listapps"
         Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$Listwindowsapp"
-    }
-
-    $outputbox.appendtext("TOBII TECH INSTALLED SW:$TechListapps")
-    Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$TechListapps"
-
-    foreach ($component in $Components) {
-        $outputbox.appendtext("$component`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$component"
-    }
-
-    foreach ($PDKversion in $PDKversions) {
-        $outputbox.appendtext("$PDKversion`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$PDKversion"
-    }
-
-    foreach ($ETVandModel in $ETVandModels) {
-        $outputbox.appendtext("$ETVandModel`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$ETVandModel"
-    }
-    
-    if ($NewETSN) {
-        $outputbox.appendtext("Eye Tracker S/N: $NewETSN `r`n")
+        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$TTcomponents"
+        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$PDKversions"
+        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$ETVandModels"
         Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$NewETSN"
-    }
 
-    $Drivers = Get-WmiObject Win32_PnPSignedDriver | Where-Object { ($_.DeviceName -match "Tobii Hello") -or ($_.DeviceName -match "Tobii Eye Tracker") } | Select-Object DeviceName, DriverVersion
-    foreach ($Driver in $Drivers) {
-        $drivername = $Driver.DeviceName
-        $driverversion = $Driver.DriverVersion
-        $outputbox.appendtext("$drivername $driverversion`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$drivername $driverversion"
         $outputbox.appendtext("`r`n")
-    }
+        $path1 = "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation"
+        $path2 = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\"
+        $path3 = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\"
 
-    $TobiiVer = Get-ItemProperty -Path HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation, HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\, HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\ 
-    #$OutputBox.AppendText("$TobiiVer")
-     
-    if ($TobiiVer.EyeTrackerModel -eq "PCEye5") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.EyeTrackerModel + " IS514`r`n")
-    }
-    elseif ($TobiiVer.ProductType -eq "TDG16") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.ProductType + " TDG16`r`n")
-    }
-    elseif ($TobiiVer.ProductType -eq "TDH10") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.ProductType + " TDH10`r`n")
-    }
-    elseif ($TobiiVer.ProductType -eq "TDTW7") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.ProductType + " TDTW7`r`n")
-    }
-    elseif ($TobiiVer.ProductType -eq "TDG10") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.ProductType + " TDG10`r`n")
-    }
-    elseif ($TobiiVer.ProductType -eq "I-Series" -and $TobiiVer1.ProductModel -eq "I-12+") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.ProductType + " TDI12-xxxxx`r`n")
-    }
-    elseif ($TobiiVer.EyeTrackerModel -eq "EM12") {
-        $OutputBox.AppendText("Eye tracker is " + $TobiiVer.EyeTrackerModel + " TEM12`r`n")
-    }
-    elseif ($TobiiVer.EyeTrackerModel -eq "PCEye2") {
-        $OutputBox.AppendText("Eye tracker is  " + $TobiiVer.EyeTrackerModel + " PCEGO or PCEye Mini`r`n")
-    }
-    elseif ($TobiiVer.EyeTrackerModel -eq "PCEyeExplore") {
-        $OutputBox.AppendText("Eye tracker is  " + $TobiiVer.EyeTrackerModel + " PCEyeExplore`r`n")
-    }
-    else {
-        $OutputBox.AppendText( "No match," + $TobiiVer.EyeTrackerModel + "and " + $TobiiVer.ProductType + "`r`n") 
-    }
+        if (Test-Path $path1) { 
+            $TobiiVer1 = Get-ItemProperty -Path $path1
+        }
+        if (Test-Path $path2) { 
+            $TobiiVer2 = Get-ItemProperty -Path $path2
+        }
+        if (Test-Path $path3) { 
+            $TobiiVer3 = Get-ItemProperty -Path $path3
+        }
 
-    pnputil /enum-drivers > $infofolder\systemDrivers.txt
-    $TobiiDrivers = Get-WindowsDriver -Online | Where-Object { $_.ProviderName -match "Tobii" }  | Select-Object Driver , OriginalFileName
-    ForEach ($drivers in $TobiiDrivers) {
-        $inf = $drivers.Driver 
-        $List = $drivers.OriginalFileName
-        $List = $List.Replace("C:\Windows\System32\DriverStore\FileRepository\", "")
-        $outputbox.appendtext("$inf : $List `r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$inf : $List"
-    }
+        if (($TobiiVer1.EyeTrackerModel -eq "PCEye5") -or ($TobiiVer2.EyeTrackerModel -eq "PCEye5") -or ($TobiiVer3.EyeTrackerModel -eq "PCEye5")) {
+            $OutputBox.AppendText("Eye tracker is IS514`r`n")
+        }
+        elseif (($TobiiVer1.ProductType -eq "TDG16") -or ($TobiiVer2.ProductType -eq "TDG16") -or ($TobiiVer3.ProductType -eq "TDG16")) {
+            $OutputBox.AppendText("Eye tracker is TDG16`r`n")
+        }
+        elseif (($TobiiVer1.ProductType -eq "TDH10") -or ($TobiiVer2.ProductType -eq "TDH10") -or ($TobiiVer3.ProductType -eq "TDH10")) {
+            $OutputBox.AppendText("Eye tracker is TDH10`r`n")
+        }
+        elseif (($TobiiVer1.ProductType -eq "TDTW7") -or ($TobiiVer2.ProductType -eq "TDTW7") -or ($TobiiVer3.ProductType -eq "TDTW7")) {
+            $OutputBox.AppendText("Eye tracker is TDTW7`r`n")
+        }
+        elseif (($TobiiVer1.ProductType -eq "TDG10") -or ($TobiiVer2.ProductType -eq "TDG10") -or ($TobiiVer3.ProductType -eq "TDG10")) {
+            $OutputBox.AppendText("Eye tracker is TDG10`r`n")
+        }
+        elseif (($TobiiVer1.ProductType -eq "I-Series" -and $TobiiVer1.ProductModel -eq "I-12+") -or ($TobiiVer2.ProductType -eq "I-Series" -and $TobiiVer2.ProductModel -eq "I-12+") -or ($TobiiVer3.ProductType -eq "I-Series" -and $TobiiVer3.ProductModel -eq "I-12+")) {
+            $OutputBox.AppendText("Eye tracker is TDI12-xxxxx`r`n")
+        }
+        elseif (($TobiiVer1.EyeTrackerModel -eq "EM12") -or ($TobiiVer2.EyeTrackerModel -eq "EM12") -or ($TobiiVer3.EyeTrackerModel -eq "EM12")) {
+            $OutputBox.AppendText("Eye tracker is TEM12`r`n")
+        }
+        elseif (($TobiiVer1.EyeTrackerModel -eq "PCEye2") -or ($TobiiVer2.EyeTrackerModel -eq "PCEye2") -or ($TobiiVer3.EyeTrackerModel -eq "PCEye2")) {
+            $OutputBox.AppendText("Eye tracker is PCEGO or PCEye Mini`r`n")
+        }
+        elseif (($TobiiVer1.EyeTrackerModel -eq "PCEyeExplore") -or ($TobiiVer2.EyeTrackerModel -eq "PCEyeExplore") -or ($TobiiVer3.EyeTrackerModel -eq "PCEyeExplore")) {
+            $OutputBox.AppendText("Eye tracker is PCEyeExplore`r`n")
+        }
+        else {
+            $OutputBox.AppendText( "No match`r`n") 
+        }
+        $outputbox.appendtext("`r`n")
+
+        $ETDrivers = Get-WmiObject Win32_PnPSignedDriver | Where-Object { ($_.DeviceName -match "Tobii Hello") -or ($_.DeviceName -match "Tobii Eye Tracker") } | Select-Object DeviceName, DriverVersion
+        ForEach ($ETDriver in $ETDrivers) {
+            $ETdrivername = $ETDriver.DeviceName
+            $ETdriverversion = $ETDriver.DriverVersion
+            $outputbox.appendtext("$ETdrivername $ETdriverversion`r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$ETdrivername $ETdriverversion"
+            $outputbox.appendtext("`r`n")
+        }
+    
+        $TobiiDrivers = Get-WindowsDriver -Online | Where-Object { $_.ProviderName -match "Tobii" }  | Select-Object Driver , OriginalFileName
+        ForEach ($Tobiidrivers in $TobiiDrivers) {
+            $Tobiiinf = $Tobiidrivers.Driver 
+            $TobiiList = $Tobiidrivers.OriginalFileName
+            $TobiiList = $TobiiList.Replace("C:\Windows\System32\DriverStore\FileRepository\", "")
+            $outputbox.appendtext("$Tobiiinf : $TobiiList `r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$Tobiiinf : $TobiiList"
+        }
+    
+        $DesktopMonitors = Get-CimInstance -ClassName Win32_DesktopMonitor -Property *
+        $Monitor1 = Get-PnpDevice | Where-Object Class -Match "Monitor"
+        $Monitor2 = Get-WmiObject WmiMonitorID -Namespace root\wmi
+        $Display = Get-WmiObject -Namespace root\wmi -Class WmiMonitorBasicDisplayParams | Select-Object @{ N = "Computer"; E = { $_.__SERVER } }, InstanceName, @{N = "Horizonal"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) * 10, 2) } }, @{N = "Vertical"; E = { [System.Math]::Round(($_.MaxVerticalImageSize) * 10, 2) } }, @{N = "Size"; E = { [System.Math]::Round(([System.Math]::Sqrt([System.Math]::Pow($_.MaxHorizontalImageSize, 2) + [System.Math]::Pow($_.MaxVerticalImageSize, 2))), 2) } }, @{N = "Ratio"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) / ($_.MaxVerticalImageSize), 2) } }
+        $motherboard = Get-CimInstance -ClassName Win32_ComputerSystem | Select-Object -Property Mainboard, AdminPasswordStatus, AutomaticManagedPagefile, AutomaticResetBootOption, AutomaticResetCapability, BootOptionOnLimit, BootOptionOnWatchDog, BootROMSupported, BootStatus, BootupState, Caption, ChassisBootupState, ChassisSKUNumber, CreationClassName, CurrentTimeZone, DaylightInEffect, Description, DNSHostName, Domain, DomainRole, EnableDaylightSavingsTime, FrontPanelResetStatus, HypervisorPresent, InfraredSupported, InitialLoadInfo, InstallDate, KeyboardPasswordStatus, LastLoadInfo, Manufacturer, Model, Name, NameFormat, NetworkServerModeEnabled, NumberOfLogicalProcessors, NumberOfProcessors, OEMLogoBitmap, OEMStringArray, PartOfDomain, PauseAfterReset, PCSystemType, PCSystemTypeEx, PowerManagementCapabilities, PowerManagementSupported, PowerOnPasswordStatus, PowerState, PowerSupplyState, PrimaryOwnerContact, PrimaryOwnerName, ResetCapability, ResetCount, ResetLimit, Roles, Status, SupportContactDescription, SystemFamily, SystemSKUNumber, SystemStartupDelay, SystemStartupOptions, SystemStartupSetting, SystemType, ThermalState, TotalPhysicalMemory, UserName, WakeUpType, Workgroup
+        $pnpDevices = Get-WmiObject Win32_PNPEntity
+        $usbControllers = Get-WmiObject Win32_USBHub
+        $USBDeviceTree1 = Get-CimInstance -ClassName Win32_USBHub -Property * 
+        $USBDeviceTree2 = Get-CimInstance -ClassName Win32_USBControllerDevice
+        $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -Property 'BootDevice', 'BuildNumber', 'BuildType', 'Caption', 'CodeSet', 'CountryCode', 'CreationClassName', 'CSCreationClassName', 'CSDVersion', 'CSName', 'CurrentTimeZone', 'DataExecutionPrevention_32BitApplications', 'DataExecutionPrevention_Available', 'DataExecutionPrevention_Drivers', 'DataExecutionPrevention_SupportPolicy', 'Debug', 'Description', 'Distributed', 'EncryptionLevel', 'ForegroundApplicationBoost', 'FreePhysicalMemory', 'FreeSpaceInPagingFiles', 'FreeVirtualMemory', 'InstallDate', 'LastBootUpTime', 'LocalDateTime', 'Locale', 'Manufacturer', 'MaxNumberOfProcesses', 'MaxProcessMemorySize', 'MUILanguages', 'Name', 'NumberOfLicensedUsers', 'NumberOfProcesses', 'NumberOfUsers', 'OperatingSystemSKU', 'Organization', 'OSArchitecture', 'OSLanguage', 'OSProductSuite', 'OSType', 'OtherTypeDescription', 'PAEEnabled', 'PlusProductID', 'PlusVersionNumber', 'PortableOperatingSystem', 'Primary', 'ProductType', 'RegisteredUser', 'SerialNumber', 'ServicePackMajorVersion', 'ServicePackMinorVersion', 'SizeStoredInPagingFiles', 'Status', 'SuiteMask', 'SystemDevice', 'SystemDirectory', 'SystemDrive', 'TotalSwapSpaceSize', 'TotalVirtualMemorySize', 'TotalVisibleMemorySize', 'Version', 'WindowsDirectory'
+        $hidDevices = Get-WmiObject Win32_PnPSignedDriver | Where-Object devicename -Like "*tobii*" | Select-Object devicename, driverversion
+        $PersistedData1 = Get-ChildItem -Path Registry::HKEY_CURRENT_USER\SOFTWARE\Tobii -Recurse
+        $PersistedData2 = Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii -Recurse
+	
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "DesktopMonitors`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $DesktopMonitors
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "Monitor1`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $Monitor1
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "Monitor2`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $Monitor2
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "Display`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $Display
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "motherboard`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $motherboard
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "pnpDevices`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $pnpDevices
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "usbControllers`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $usbControllers
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "USBDeviceTree1`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $USBDeviceTree1
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "USBDeviceTree2`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $USBDeviceTree2
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "operatingSystem`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $operatingSystem
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "hidDevices`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $hidDevices
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "PersistedData1`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $PersistedData1
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value "PersistedData2`r`n"
+        Add-Content -path "$infofolder\HardwareReport.txt" -Value $PersistedData2
+
+        $fpathusb = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        if (test-path $fpathusb) {
+            Set-Location $fpathusb
+            Get-Service -Name '*TobiiIS*' | Stop-Service -Force -passthru -ErrorAction ignore
+
+            $info = .\CastorUsbCli.exe "--info"
+            $status = .\CastorUsbCli.exe "--status"
+            $unitinfo = .\CastorUsbCli.exe "--unit-info"
+            $flashinfo = .\CastorUsbCli.exe "--flash-info"
+            $list = .\CastorUsbCli.exe "--list"
+            $properties = .\CastorUsbCli.exe "--properties"
+            $platform = .\CastorUsbCli.exe "--platform"
+            $reset = .\CastorUsbCli.exe "--reset"
+            $execute = .\CastorUsbCli.exe "--execute"
+            $readbootheader = .\CastorUsbCli.exe "--read-boot-header"
+            $readappheader = .\CastorUsbCli.exe "--read-app-header"
+            $showscreenplane = .\CastorUsbCli.exe "--show-screen-plane"
+
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $info
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $status
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $unitinfo
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $flashinfo
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $list
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $properties
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $platform
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $reset
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $execute
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $readbootheader
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $readappheader
+            Add-Content -path "$infofolder\EyeTrackerReport.txt" -Value $showscreenplane
+
+            Get-Service -Name '*TobiiIS*' | start-Service  -passthru -ErrorAction ignore
+        }
+        else {
+            $outputbox.appendtext("Not able to run ET info since it missing exe file")
+
+        }
    
-    $getdeviceids = $null
-    $getdeviceids2 = $null
-    $getdeviceids = Get-WmiObject Win32_USBControllerDevice | ForEach-Object { [wmi]($_.Dependent) } | Where-Object DeviceID -Like "*Tobii*" | Select-object DeviceID
-    $getdeviceids2 = Get-CimInstance Win32_PnPSignedDriver | Where-Object Description -Like "*WinUSB Device*" | Select-Object DeviceID
-    # gwmi Win32_USBControllerDevice |%{[wmi]($_.Dependent)} | Sort Manufacturer,Description,DeviceID | Ft -GroupBy Manufacturer Description,Service,DeviceID | out-file c:\VidPid.txt
-
-    Foreach ($getdeviceid in $getdeviceids) {
-        $outputbox.appendtext("$getdeviceid `r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$getdeviceid"
-    }
-    Start-Sleep -s 5
-    Foreach ($getdeviceid2 in $getdeviceids2) {
-        $outputbox.appendtext("$getdeviceid2`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$getdeviceid2"
-    }	
-
-    $installedFrameworks = @()
-    if (IsKeyPresent "HKLM:\Software\Microsoft\.NETFramework\Policy\v1.0" "3705") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 1.0`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 1.0"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v1.1.4322" "Install") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 1.1`r`n") 
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 1.1"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v2.0.50727" "Install") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 2.0`r`n")
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 2.0"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v3.0\Setup" "InstallSuccess") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 3.0`r`n") 
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 3.0"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v3.5" "Install") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 3.5`r`n" ) 
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 3.5"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Client" "Install") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 4.0c`r`n" ) 
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.0c"
-    }
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Install") { 
-        $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 4.0`r`n" ) 
-        Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.0"
-    }
-
-    $result = -1
-    if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Client" "Install" -or IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Install") {
-        # .net 4.0 is installed
-        $result = 0
-        $version = GetFrameworkValue "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Release"
-        
-        if ($version -ge 528040 -Or $version -ge 528372 -Or $version -ge 528049) {
-            # .net 4.8
-            $outputbox.appendtext( "Installed .Net Framework 4.8`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.8"
-            $result = 10
-        }
-        elseif ($version -ge 461808 -Or $version -ge 461814) {
-            # .net 4.7.2
-            $outputbox.appendtext("Installed .Net Framework 4.7.2`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7.2"
-            $result = 9
-        }
-        elseif ($version -ge 461308 -Or $version -ge 461310) {
-            # .net 4.7.1
-            $outputbox.appendtext( "Installed .Net Framework 4.7.1`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7.1"
-            $result = 8
-        }
-        elseif ($version -ge 460798 -Or $version -ge 460805) {
-            # .net 4.7
-            $outputbox.appendtext( "Installed .Net Framework 4.7`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7"
-            $result = 7
-        }
-        elseif ($version -ge 394802 -Or $version -ge 394806) {
-            # .net 4.6.2
-            $outputbox.appendtext( "Installed .Net Framework 4.6.2`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6.2"
-            $result = 6
-        }
-        elseif ($version -ge 394254 -Or $version -ge 394271) {
-            # .net 4.6.1
-            $outputbox.appendtext( "Installed .Net Framework 4.6.1`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6.1"
-            $result = 5
-        }
-        elseif ($version -ge 393295 -Or $version -ge 393297) {
-            # .net 4.6
-            $outputbox.appendtext( "Installed .Net Framework 4.6`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6"
-            $result = 4
-        }
-        elseif ($version -ge 379893) {
-            # .net 4.5.2
-            $outputbox.appendtext( "Installed .Net Framework 4.5.2`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5.2"
-            $result = 3
-        }
-        elseif ($version -ge 378675) {
-            # .net 4.5.1
-            $outputbox.appendtext( "Installed .Net Framework 4.5.1`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5.1"
-            $result = 2
-        }
-        elseif ($version -ge 378389) {
-            # .net 4.5
-            $outputbox.appendtext( "Installed .Net Framework 4.5`r`n")
-            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5"
-            $result = 1
-        }   
+        pnputil /enum-drivers > $infofolder\systemDrivers.txt
     
-        $outputbox.appendtext("Done! `r`n")
-    }
-    else {
-        # .net framework 4 family isn't installed
+        $outputbox.appendtext("`r`nReading battery info:`r`n")
+        $key = 'HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Device'
+        #$fpath = Get-ChildItem -Path $PSScriptRoot -Filter "batteryreport.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        #Set-Location $fpath
+
+        if (Test-Path $key) {
+            $SerialNumber = (Get-ItemProperty -Path $key)."Serial Number" 
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Serial Number is $SerialNumber"
+            $outputbox.appendtext("Device Serial Number is $SerialNumber`r`n")
+    
+            $OEMImage = (Get-ItemProperty -Path $key)."OEM Image" 
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's OEM Image is $OEMImage"
+            $outputbox.appendtext("Device OEM Image is $OEMImage`r`n")
+
+            $ProductKey = (Get-ItemProperty -Path $key)."Product Key"
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Product Key is $ProductKey"
+            $outputbox.appendtext("Device Product Key is $ProductKey`r`n")
+        }
+        else {
+            $SerialNumber = (Get-CimInstance -ClassName Win32_bios).SerialNumber
+            $Model = (Get-CimInstance -ClassName Win32_ComputerSystem).Model
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "This device is not TD device"
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Serial Number is $SerialNumber"
+            Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Model is $Model"
+        }
+
+        if ($SerialNumber -match "TD110-") {
+            $outputbox.appendtext("Battery report is not support on this device, runt I-110MLK.bat to get the report.`r`n")
+        }
+        else {
+            powercfg /batteryreport /output "$infofolder\$SerialNumber-battery-report.html"
+        }
+
+        $DesignedCapacity = (Get-WmiObject -Class BatteryStaticData -Namespace ROOT\WMI).DesignedCapacity / 1000
+        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Designed Capacity is $DesignedCapacity mWh"
+        $outputbox.appendtext("Design Capacity is $DesignedCapacity mWh`r`n")
+
+        $FullChargedCapacity = (Get-WmiObject -Class BatteryFullChargedCapacity -Namespace ROOT\WMI).FullChargedCapacity / 1000
+        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Full Charged Capacity is $FullChargedCapacity mWh"
+        $outputbox.appendtext("Full Charge Capacity is $FullChargedCapacity mWh`r`n")
+
+        #$BatteryHealth = ($FullChargedCapacity/$DesignedCapacity)
+        $BatteryHealth = [Math]::Round($FullChargedCapacity / $DesignedCapacity * 100)
+        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Health is $BatteryHealth %`r`n"
+        $outputbox.appendtext("Battery Health is $BatteryHealth %`r`n")
+    
+        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "$GetProcess`r`n"
+        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "$GetServices`r`n"
+    
+        #Getting installed .NET version
+        $getdeviceids = $null
+        $getdeviceids2 = $null
+        $getdeviceids = Get-WmiObject Win32_USBControllerDevice | ForEach-Object { [wmi]($_.Dependent) } | Where-Object DeviceID -Like "*Tobii*" | Select-object DeviceID
+        $getdeviceids2 = Get-CimInstance Win32_PnPSignedDriver | Where-Object Description -Like "*WinUSB Device*" | Select-Object DeviceID
+        # gwmi Win32_USBControllerDevice |%{[wmi]($_.Dependent)} | Sort Manufacturer,Description,DeviceID | Ft -GroupBy Manufacturer Description,Service,DeviceID | out-file c:\VidPid.txt
+        Foreach ($getdeviceid in $getdeviceids) {
+            $outputbox.appendtext("$getdeviceid `r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$getdeviceid"
+        }
+        Start-Sleep -s 5
+        Foreach ($getdeviceid2 in $getdeviceids2) {
+            $outputbox.appendtext("$getdeviceid2`r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "$getdeviceid2"
+        }	
+
+        $installedFrameworks = @()
+        if (IsKeyPresent "HKLM:\Software\Microsoft\.NETFramework\Policy\v1.0" "3705") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 1.0`r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 1.0"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v1.1.4322" "Install") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 1.1`r`n") 
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 1.1"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v2.0.50727" "Install") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 2.0`r`n")
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 2.0"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v3.0\Setup" "InstallSuccess") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 3.0`r`n") 
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 3.0"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v3.5" "Install") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 3.5`r`n" ) 
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 3.5"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Client" "Install") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 4.0c`r`n" ) 
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.0c"
+        }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Install") { 
+            $installedFrameworks += $outputbox.appendtext("Installed .Net Framework 4.0`r`n" ) 
+            Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.0"
+        }
+
         $result = -1
-    }
+        if (IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Client" "Install" -or IsKeyPresent "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Install") {
+            # .net 4.0 is installed
+            $result = 0
+            $version = GetFrameworkValue "HKLM:\Software\Microsoft\NET Framework Setup\NDP\v4\Full" "Release"
+        
+            if ($version -ge 528040 -Or $version -ge 528372 -Or $version -ge 528049) {
+                # .net 4.8
+                $outputbox.appendtext( "Installed .Net Framework 4.8`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.8"
+                $result = 10
+            }
+            elseif ($version -ge 461808 -Or $version -ge 461814) {
+                # .net 4.7.2
+                $outputbox.appendtext("Installed .Net Framework 4.7.2`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7.2"
+                $result = 9
+            }
+            elseif ($version -ge 461308 -Or $version -ge 461310) {
+                # .net 4.7.1
+                $outputbox.appendtext( "Installed .Net Framework 4.7.1`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7.1"
+                $result = 8
+            }
+            elseif ($version -ge 460798 -Or $version -ge 460805) {
+                # .net 4.7
+                $outputbox.appendtext( "Installed .Net Framework 4.7`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.7"
+                $result = 7
+            }
+            elseif ($version -ge 394802 -Or $version -ge 394806) {
+                # .net 4.6.2
+                $outputbox.appendtext( "Installed .Net Framework 4.6.2`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6.2"
+                $result = 6
+            }
+            elseif ($version -ge 394254 -Or $version -ge 394271) {
+                # .net 4.6.1
+                $outputbox.appendtext( "Installed .Net Framework 4.6.1`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6.1"
+                $result = 5
+            }
+            elseif ($version -ge 393295 -Or $version -ge 393297) {
+                # .net 4.6
+                $outputbox.appendtext( "Installed .Net Framework 4.6`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.6"
+                $result = 4
+            }
+            elseif ($version -ge 379893) {
+                # .net 4.5.2
+                $outputbox.appendtext( "Installed .Net Framework 4.5.2`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5.2"
+                $result = 3
+            }
+            elseif ($version -ge 378675) {
+                # .net 4.5.1
+                $outputbox.appendtext( "Installed .Net Framework 4.5.1`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5.1"
+                $result = 2
+            }
+            elseif ($version -ge 378389) {
+                # .net 4.5
+                $outputbox.appendtext( "Installed .Net Framework 4.5`r`n")
+                Add-Content -path "$infofolder\SoftwareVersions.txt" -Value "Installed .Net Framework 4.5"
+                $result = 1
+            }   
     
-    return $result    
-    #$version = GetFramework40FamilyVersion;
-    return $installedFrameworks
+            $outputbox.appendtext("Done! `r`n")
+        }
+        else {
+            # .net framework 4 family isn't installed
+            $result = -1
+        }
+        return $result    
+        #$version = GetFramework40FamilyVersion;
+        return $installedFrameworks
 
-    if ($version -ge 1) { 
+        if ($version -ge 1) { 
+        }
+        else { }
+        $outputbox.appendtext("Logs saved in $infofolder `r`nDone!`r`n")
     }
-    else { }
-
+    elseif ($answer2 -ne 6) {
+    }
 }
-
 function IsKeyPresent([string]$path, [string]$key) {
     if (!(Test-Path $path)) { return $false }
     if ($null -eq (Get-ItemProperty $path).$key) { return $false }
@@ -1726,186 +1880,11 @@ function IsKeyPresent([string]$path, [string]$key) {
 function GetFrameworkValue([string]$path, [string]$key) {
     if (!(Test-Path $path)) { return "-1" }
     return (Get-ItemProperty $path).$key  
+
 }
 
-#B2
-Function HWInfo {
-    $outputBox.clear()
-    #Creating folder
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
 
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
-    }
-    else { 
-        $outputbox.appendtext("File $fileversion is missing!`r`n" )
-    }
-    $infofolder = "$fpath\infofolder"
-    if (!(Test-Path "$infofolder")) {
-        New-Item -Path "$infofolder" -ItemType Directory  
-    }
-    else {
-        Remove-Item -Path $infofolder\* -Recurse 
-        $OutputBox.AppendText( "InfoFolder is already created.`r`n")
-    }
-
-    #Creating files
-    if (!(Test-Path "$infofolder\Monitors.txt") -or 
-        !(Test-Path "$infofolder\hidDevices.txt") -or 
-        !(Test-Path "$infofolder\motherboard.txt") -or 
-        !(Test-Path "$infofolder\operatingSystem.txt") -or 
-        !(Test-Path "$infofolder\pnpDevices.txt") -or  
-        !(Test-Path "$infofolder\USBDeviceTree.txt") -or 
-        !(Test-Path "$infofolder\PersistedData.txt") -or 
-        !(Test-Path "$infofolder\ETInfo.txt") -or
-        !(Test-Path "$infofolder\DeviceInfo.txt") -or
-        !(Test-Path "$infofolder\AllSW.txt") -or
-        !(Test-Path "$infofolder\ProcessPIDDrivers.txt")
-    ) {
-        New-Item -Path $infofolder -Name "Monitors.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "hidDevices.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "motherboard.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "operatingSystem.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "pnpDevices.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "USBDeviceTree.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "PersistedData.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "ETInfo.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "DeviceInfo.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "AllSW.txt" -ItemType "file"
-        New-Item -Path $infofolder -Name "ProcessPIDDrivers.txt" -ItemType "file"
-    }
-    else {
-        Clear-Content -Path "$infofolder\Monitors.txt"
-        Clear-Content -Path "$infofolder\hidDevices.txt"
-        Clear-Content -Path "$infofolder\motherboard.txt"
-        Clear-Content -Path "$infofolder\operatingSystem.txt"
-        Clear-Content -Path "$infofolder\pnpDevices.txt"
-        Clear-Content -Path "$infofolder\USBDeviceTree.txt"
-        Clear-Content -Path "$infofolder\PersistedData.txt"
-        Clear-Content -Path "$infofolder\ETInfo.txt"
-        Clear-Content -Path "$infofolder\AllSW.txt"
-        Clear-Content -Path "$infofolder\ProcessPIDDrivers.txt"
-    }
-
-    $DesktopMonitors = Get-CimInstance -ClassName Win32_DesktopMonitor -Property *
-    $hidDevices = Get-WmiObject Win32_PnPSignedDriver | Where-Object devicename -Like "*tobii*" | Select-Object devicename, driverversion
-    $motherboard = Get-CimInstance -ClassName Win32_ComputerSystem | Select-Object -Property Mainboard, AdminPasswordStatus, AutomaticManagedPagefile, AutomaticResetBootOption, AutomaticResetCapability, BootOptionOnLimit, BootOptionOnWatchDog, BootROMSupported, BootStatus, BootupState, Caption, ChassisBootupState, ChassisSKUNumber, CreationClassName, CurrentTimeZone, DaylightInEffect, Description, DNSHostName, Domain, DomainRole, EnableDaylightSavingsTime, FrontPanelResetStatus, HypervisorPresent, InfraredSupported, InitialLoadInfo, InstallDate, KeyboardPasswordStatus, LastLoadInfo, Manufacturer, Model, Name, NameFormat, NetworkServerModeEnabled, NumberOfLogicalProcessors, NumberOfProcessors, OEMLogoBitmap, OEMStringArray, PartOfDomain, PauseAfterReset, PCSystemType, PCSystemTypeEx, PowerManagementCapabilities, PowerManagementSupported, PowerOnPasswordStatus, PowerState, PowerSupplyState, PrimaryOwnerContact, PrimaryOwnerName, ResetCapability, ResetCount, ResetLimit, Roles, Status, SupportContactDescription, SystemFamily, SystemSKUNumber, SystemStartupDelay, SystemStartupOptions, SystemStartupSetting, SystemType, ThermalState, TotalPhysicalMemory, UserName, WakeUpType, Workgroup
-    $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -Property 'BootDevice', 'BuildNumber', 'BuildType', 'Caption', 'CodeSet', 'CountryCode', 'CreationClassName', 'CSCreationClassName', 'CSDVersion', 'CSName', 'CurrentTimeZone', 'DataExecutionPrevention_32BitApplications', 'DataExecutionPrevention_Available', 'DataExecutionPrevention_Drivers', 'DataExecutionPrevention_SupportPolicy', 'Debug', 'Description', 'Distributed', 'EncryptionLevel', 'ForegroundApplicationBoost', 'FreePhysicalMemory', 'FreeSpaceInPagingFiles', 'FreeVirtualMemory', 'InstallDate', 'LastBootUpTime', 'LocalDateTime', 'Locale', 'Manufacturer', 'MaxNumberOfProcesses', 'MaxProcessMemorySize', 'MUILanguages', 'Name', 'NumberOfLicensedUsers', 'NumberOfProcesses', 'NumberOfUsers', 'OperatingSystemSKU', 'Organization', 'OSArchitecture', 'OSLanguage', 'OSProductSuite', 'OSType', 'OtherTypeDescription', 'PAEEnabled', 'PlusProductID', 'PlusVersionNumber', 'PortableOperatingSystem', 'Primary', 'ProductType', 'RegisteredUser', 'SerialNumber', 'ServicePackMajorVersion', 'ServicePackMinorVersion', 'SizeStoredInPagingFiles', 'Status', 'SuiteMask', 'SystemDevice', 'SystemDirectory', 'SystemDrive', 'TotalSwapSpaceSize', 'TotalVirtualMemorySize', 'TotalVisibleMemorySize', 'Version', 'WindowsDirectory'
-    $pnpDevices = Get-WmiObject Win32_PNPEntity
-    $usbControllers = Get-WmiObject Win32_USBHub
-    $USBDeviceTree1 = Get-CimInstance -ClassName Win32_USBHub -Property * 
-    $USBDeviceTree2 = Get-CimInstance -ClassName Win32_USBControllerDevice
-    $Monitor1 = Get-PnpDevice | Where-Object Class -Match "Monitor"
-    $Monitor2 = Get-WmiObject WmiMonitorID -Namespace root\wmi
-    $Display = Get-WmiObject -Namespace root\wmi -Class WmiMonitorBasicDisplayParams | Select-Object @{ N = "Computer"; E = { $_.__SERVER } }, InstanceName, @{N = "Horizonal"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) * 10, 2) } }, @{N = "Vertical"; E = { [System.Math]::Round(($_.MaxVerticalImageSize) * 10, 2) } }, @{N = "Size"; E = { [System.Math]::Round(([System.Math]::Sqrt([System.Math]::Pow($_.MaxHorizontalImageSize, 2) + [System.Math]::Pow($_.MaxVerticalImageSize, 2))), 2) } }, @{N = "Ratio"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) / ($_.MaxVerticalImageSize), 2) } }
-    $PersistedData1 = Get-ChildItem -Path Registry::HKEY_CURRENT_USER\SOFTWARE\Tobii -Recurse
-    $PersistedData2 = Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii -Recurse
-    
-    Add-Content -path "$infofolder\Monitors.txt" -Value $DesktopMonitors
-    Add-Content -path "$infofolder\hidDevices.txt" -Value $hidDevices
-    Add-Content -path "$infofolder\motherboard.txt" -Value $motherboard
-    Add-Content -path "$infofolder\operatingSystem.txt" -Value $operatingSystem
-    Add-Content -path "$infofolder\pnpDevices.txt" -Value $pnpDevices
-    Add-Content -path "$infofolder\USBDeviceTree.txt" -Value $usbControllers
-    Add-Content -path "$infofolder\USBDeviceTree.txt" -Value $USBDeviceTree1
-    Add-Content -path "$infofolder\USBDeviceTree.txt" -Value $USBDeviceTree2
-    Add-Content -path "$infofolder\Monitors.txt" -Value $Monitor1
-    Add-Content -path "$infofolder\Monitors.txt" -Value $Monitor2
-    Add-Content -path "$infofolder\Monitors.txt" -Value $Display
-    Add-Content -path "$infofolder\PersistedData.txt" -Value $PersistedData1
-    Add-Content -path "$infofolder\PersistedData.txt" -Value $PersistedData2
-    Add-Content -path "$infofolder\AllSW.txt" -Value $Listapps
-    Add-Content -path "$infofolder\ProcessPIDDrivers.txt" -Value $GetOtherInfo
-
-    Get-Service -Name '*TobiiIS*' | Stop-Service -Force -passthru -ErrorAction ignore
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    if (test-path $fpath) {
-        Set-Location $fpath
-
-        $info = .\CastorUsbCli.exe "--info"
-        $status = .\CastorUsbCli.exe "--status"
-        $unitinfo = .\CastorUsbCli.exe "--unit-info"
-        $flashinfo = .\CastorUsbCli.exe "--flash-info"
-        $list = .\CastorUsbCli.exe "--list"
-        $properties = .\CastorUsbCli.exe "--properties"
-        $platform = .\CastorUsbCli.exe "--platform"
-        $reset = .\CastorUsbCli.exe "--reset"
-        $execute = .\CastorUsbCli.exe "--execute"
-        $readbootheader = .\CastorUsbCli.exe "--read-boot-header"
-        $readappheader = .\CastorUsbCli.exe "--read-app-header"
-        $showscreenplane = .\CastorUsbCli.exe "--show-screen-plane"
-
-        Get-Service -Name '*TobiiIS*' | Stop-Service -Force -passthru -ErrorAction ignore
-
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $info
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $status
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $unitinfo
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $flashinfo
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $list
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $properties
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $platform
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $reset
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $execute
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $readbootheader
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $readappheader
-        Add-Content -path "$infofolder\ETInfo.txt" -Value $showscreenplane
-
-        Get-Service -Name '*TobiiIS*' | start-Service  -passthru -ErrorAction ignore
-    }
-    else {
-        $outputbox.appendtext("Not able to run ET info since it missing exe file")
-
-    }
-    $outputbox.appendtext("Reading battery info!`r`n")
-    $key = 'HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Device'
-    #$fpath = Get-ChildItem -Path $PSScriptRoot -Filter "batteryreport.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    #Set-Location $fpath
-
-    if (Test-Path $key) {
-        $SerialNumber = (Get-ItemProperty -Path $key)."Serial Number" 
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Serial Number is $SerialNumber"
-        $outputbox.appendtext("Device Serial Number is $SerialNumber`r`n")
-    
-        $OEMImage = (Get-ItemProperty -Path $key)."OEM Image" 
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's OEM Image is $OEMImage"
-        $outputbox.appendtext("Device OEM Image is $OEMImage`r`n")
-
-        $ProductKey = (Get-ItemProperty -Path $key)."Product Key"
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Product Key is $ProductKey"
-        $outputbox.appendtext("Device Product Key is $ProductKey`r`n")
-    }
-    else {
-        $SerialNumber = (Get-CimInstance -ClassName Win32_bios).SerialNumber
-        $Model = (Get-CimInstance -ClassName Win32_ComputerSystem).Model
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "This device is not TD device"
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Serial Number is $SerialNumber"
-        Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Device's Model is $Model"
-    }
-
-    if ($SerialNumber -match "TD110-") {
-        $outputbox.appendtext("Battery report is not support on this device, runt I-110MLK.bat to get the report.`r`n")
-    }
-    else {
-        powercfg /batteryreport /output "$infofolder\$SerialNumber-battery-report.html"
-    }
-
-    $DesignedCapacity = (Get-WmiObject -Class BatteryStaticData -Namespace ROOT\WMI).DesignedCapacity / 1000
-    Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Designed Capacity is $DesignedCapacity mWh"
-    $outputbox.appendtext("Design Capacity is $DesignedCapacity mWh`r`n")
-
-    $FullChargedCapacity = (Get-WmiObject -Class BatteryFullChargedCapacity -Namespace ROOT\WMI).FullChargedCapacity / 1000
-    Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Full Charged Capacity is $FullChargedCapacity mWh"
-    $outputbox.appendtext("Full Charge Capacity is $FullChargedCapacity mWh`r`n")
-
-    #$BatteryHealth = ($FullChargedCapacity/$DesignedCapacity)
-    $BatteryHealth = [Math]::Round($FullChargedCapacity / $DesignedCapacity * 100)
-    Add-Content -path "$infofolder\DeviceInfo.txt" -Value "Battery Health is $BatteryHealth %`r`n"
-    $outputbox.appendtext("Battery Health is $BatteryHealth %`r`n")
-
-    $outputbox.appendtext("Logs saved in $infofolder `r`nDone!`r`n")
-}
-
-#B3 Lists currently active tobii processes & services
+#B2 Lists currently active tobii processes & services
 Function GetOtherInfo {
     $outputBox.clear()
     $GetProcess = get-process "*GazeSelection*", "*Tobii*" | Select-Object Processname | Format-table -hidetableheaders | Out-string
@@ -1922,7 +1901,7 @@ Function GetOtherInfo {
     $outputbox.appendtext("Done!`r`n")
 }
 
-#B4 Stops all currently active tobii processes
+#B3 Stops all currently active tobii processes
 Function RestartProcesses {
     $outputBox.clear()
     $Outputbox.Appendtext( "Restart Services...`r`n")
@@ -1954,7 +1933,7 @@ Function RestartProcesses {
     $outputBox.Appendtext( "Done!`r`n" )
 }
 
-#B5
+#B4
 Function ETfw {
     $outputBox.clear()
     $outputBox.appendtext( "Checking Eye tracker Firmware...`r`n" )
@@ -2028,7 +2007,7 @@ Function ETfw {
     $outputbox.appendtext("Done! `r`n")
 } 
 
-#B6
+#B5
 Function TrackStatus {
     $outputBox.clear()
     $outputBox.appendtext( "Showing EA Track Status...`r`n" )
@@ -2049,7 +2028,7 @@ Function TrackStatus {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B7
+#B6
 Function WCF {
     $outputBox.clear()
     $outputBox.appendtext( "Checking WCF Endpoint Blocking Software...`r`n" )
@@ -2064,12 +2043,46 @@ Function WCF {
     $outputbox.appendtext("Done! `r`n")
 }
 
+#B7
+Function PartnerWindowContrller {
+    $outputBox.clear()
+    $outputBox.appendtext( "installing partner windows driver for I-Series...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "PartnerWindowController.inf" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        Get-ChildItem -Path $fpath -Recurse -Filter "*.inf" | ForEach-Object { PNPUTIL.exe /add-driver $_.FullName /install } | Add-Content -Path "$fpath\results.txt"
+        $results = get-content -Path "$fpath\results.txt"
+        $outputbox.appendtext("$results")
+        Remove-Item "$fpath\results.txt"
+    }
+    else { 
+        $outputbox.appendtext("PartnerWindowController.inf is missing!`r`n" )
+    }
+
+    $outputbox.appendtext("`r`nDone! `r`n")
+}
+
 #B8
+Function DeleteEmailsC5 {
+    $outputBox.clear()
+    $outputBox.appendtext( "running Delete Emails Communicator.exe...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Delete Emails Communicator.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        Start-Process "Delete Emails Communicator.exe"
+    }
+    else { 
+        $outputbox.appendtext("File handle.exe is missing!`r`n" )
+    }
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B9
 Function SMBios {
     $outputBox.clear()
     [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
     $title = 'SMBios tool'
-    $msg = "Press 1 to run getSMBIOSvalues.cmd, `r`n 2 setName.cmd, `r`n 3 setSerialNumber.cmd, `r`n 4 setVendor.cmd, `r`n 5 GB2SmbiosTool"
+    $msg = "Press 1 to run getSMBIOSvalues.cmd, `r`n2 setName   3 setSerialNumber `r`n4 setVendor  5 GB2SmbiosTool"
     $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "getSMBIOSvalues.cmd" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
@@ -2105,7 +2118,7 @@ Function SMBios {
     $outputbox.appendtext("Done!`r`n")
 }
 
-#B9
+#B10
 Function resetBOOT {
     $outputBox.clear()
     #If first answer equals yes or no
@@ -2175,27 +2188,33 @@ Function resetBOOT {
     Catch [System.Management.Automation.RemoteException] {
         $outputbox.appendtext("No Eye Tracker Connected`r`n")
     }
+    #If second answer equals yes or no
+    $answer2 = $wshell.Popup("Verify Hardware ID for EyeChip is set to 102", 0, "Caution", 48 + 4)
+    if ($answer2 -eq 6) {
 
-    foreach ($serviceName in $serviceNames) {
-        if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
+        foreach ($serviceName in $serviceNames) {
+            if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
 
-            if ((Get-Service $serviceName).Status -ne 'Running') {
-                start-Service $serviceName
-                $outputbox.appendtext("Starting $serviceName`r`n")
+                if ((Get-Service $serviceName).Status -ne 'Running') {
+                    start-Service $serviceName
+                    $outputbox.appendtext("Starting $serviceName`r`n")
+                }
+                else {
+                    $outputbox.appendtext("$serviceName found, running.`r`n")
+                }
             }
             else {
-                $outputbox.appendtext("$serviceName found, running.`r`n")
+                $outputbox.appendtext("$serviceName not found`r`n")
             }
         }
-        else {
-            $outputbox.appendtext("$serviceName not found`r`n")
-        }
+    }     
+    elseif ($answer2 -ne 6) {
+
     }
-    
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B10
+#B11
 Function RetrieveUnreleased {
     $outputBox.clear()
     [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
@@ -2237,7 +2256,7 @@ Function RetrieveUnreleased {
     $outputbox.appendtext("Done!`r`n")
 }
 
-#B11
+#B12
 Function DeleteServices {
     $outputBox.clear()
     #If first answer equals yes or no
@@ -2258,7 +2277,7 @@ Function DeleteServices {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B12
+#B13
 Function RemoveDrivers {
     $outputBox.clear()
     #If first answer equals yes or no
@@ -2282,7 +2301,7 @@ Function RemoveDrivers {
     $outputbox.appendtext("Done!`r`n")
 }
 
-#B13
+#B14
 Function SETest {
     $outputBox.clear()
     $outputBox.appendtext( "running Stream Engine Test...`r`n" )
@@ -2297,7 +2316,7 @@ Function SETest {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B14
+#B15
 Function InternalSE {
     $outputBox.clear()
     $outputBox.appendtext( "Starting Stream Engine Sample app...`r`n" )
@@ -2308,21 +2327,6 @@ Function InternalSE {
     }
     else { 
         $outputbox.appendtext("File sample.exe is missing!`r`n" )
-    }
-    $outputbox.appendtext("Done! `r`n")
-}
-
-#B15
-Function Diagnostic {
-    $outputBox.clear()
-    $outputBox.appendtext( "Run diagnostics application for Interaction...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tobii.EyeX.Diagnostics.Application.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
-        start-process cmd "/c `"Tobii.EyeX.Diagnostics.Application.exe`""
-    }
-    else { 
-        $outputbox.appendtext("File Tobii.EyeX.Diagnostics.Application.exe is missing!`r`n" )
     }
     $outputbox.appendtext("Done! `r`n")
 }
@@ -2411,6 +2415,21 @@ Function SetDebugLogging {
 }
 
 #B17
+Function Diagnostic {
+    $outputBox.clear()
+    $outputBox.appendtext( "Run diagnostics application for Interaction...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tobii.EyeX.Diagnostics.Application.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        start-process cmd "/c `"Tobii.EyeX.Diagnostics.Application.exe`""
+    }
+    else { 
+        $outputbox.appendtext("File Tobii.EyeX.Diagnostics.Application.exe is missing!`r`n" )
+    }
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B18
 Function ETConnection {
     $outputBox.clear()
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
@@ -2456,7 +2475,7 @@ Function ETConnection {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B18
+#B19
 Function EAProfileCreation {
     $outputBox.clear()
     [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
@@ -2519,8 +2538,8 @@ Function EAProfileCreation {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B19
-Function ETSamples {
+#B20
+Function RISamples {
     $outputBox.clear()
     $outputBox.appendtext( "Starting TD region interaction sample...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
@@ -2588,7 +2607,7 @@ Function ETSamples {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B20
+#B21
 Function BatteryLog {
     $outputBox.clear()
     $outputBox.appendtext( "Starting TobiiDynavox.QA.BatteryMonitor.exe...`r`n" )
@@ -2604,7 +2623,7 @@ Function BatteryLog {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B21
+#B22
 Function Sleeper {
     $outputBox.clear()
     $outputBox.appendtext( "Starting Sleeper.exe then load configuration and start sleep...`r`n" )
@@ -2619,7 +2638,22 @@ Function Sleeper {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B22 Deploy
+#B23
+Function USBLogView {
+    $outputBox.clear()
+    $outputBox.appendtext( "running USBLogView.exe...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "USBLogView.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        Start-Process "USBLogView.exe"
+    }
+    else { 
+        $outputbox.appendtext("File handle.exe is missing!`r`n" )
+    }
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B24 Deploy
 Function Deployment {
     #USB namings:
     #"ISeries_MPD"         "ISeries_MPB"
@@ -2741,26 +2775,579 @@ Function Deployment {
             }
         }
     }
-
-}
-
-#B23
-Function LogCollector {
-    $outputBox.clear()
-    $outputbox.appendtext("Start `r`n")
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
-        powershell.exe "$fpath\$LogCollectorTool"
-    }
-    else { 
-        $outputbox.appendtext("File $LogCollectorTool is missing!`r`n" )
-    }
     $outputbox.appendtext("Done! `r`n")
 }
 
+#B25
+Function LogCollector {
+    #File version 
+    $LogCollectorTool = "LogCollectorTool_V0.9"
 
+    #Forces powershell to run as an admin
+    if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+    { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
+    $PSScriptRoot
 
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "$LogCollectorTool"
+    $form.Size = New-Object System.Drawing.Size(420, 320)
+    $form.StartPosition = 'CenterScreen'
+
+    $okButton = New-Object System.Windows.Forms.Button
+    $okButton.Location = New-Object System.Drawing.Point(135, 250)
+    $okButton.Size = New-Object System.Drawing.Size(75, 25)
+    $okButton.Text = 'OK'
+    $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.AcceptButton = $okButton
+    $form.Controls.Add($okButton)
+
+    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton.Location = New-Object System.Drawing.Point(210, 250)
+    $cancelButton.Size = New-Object System.Drawing.Size(75, 25)
+    $cancelButton.Text = 'Cancel'
+    $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $form.CancelButton = $cancelButton
+    $form.Controls.Add($cancelButton)
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Location = New-Object System.Drawing.Point(10, 10)
+    $label.Size = New-Object System.Drawing.Size(75, 20)
+    $label.Text = "Logs location:"
+    $form.Controls.Add($label)
+
+    $textBox = New-Object System.Windows.Forms.TextBox
+    $textBox.Location = New-Object System.Drawing.Point(85, 10)
+    $textBox.Size = New-Object System.Drawing.Size(270, 20)
+    $form.Controls.Add($textBox)
+
+    $label2 = New-Object System.Windows.Forms.Label
+    $label2.Location = New-Object System.Drawing.Point(10, 30)
+    $label2.Size = New-Object System.Drawing.Size(390, 20)
+    $label2.Text = "                        ex. C:\Users\TobiiDynavox_SysInfo_xxxx"
+    $form.Controls.Add($label2)
+
+    $label3 = New-Object System.Windows.Forms.Label
+    $label3.Location = New-Object System.Drawing.Point(10, 50)
+    $label3.Size = New-Object System.Drawing.Size(240, 30)
+    $label3.Text = "A. Choose one of following (only the number):"
+    $form.Controls.Add($label3)
+
+    $textBox2 = New-Object System.Windows.Forms.TextBox
+    $textBox2.Location = New-Object System.Drawing.Point(250, 50)
+    $textBox2.Size = New-Object System.Drawing.Size(60, 20)
+    $form.Controls.Add($textBox2)
+
+    $label3 = New-Object System.Windows.Forms.Label
+    $label3.Location = New-Object System.Drawing.Point(10, 80)
+    $label3.Size = New-Object System.Drawing.Size(350, 50)
+    $label3.Text = "1- Latest logs                                 2- Eye Assist logs`n3- Driver software logs                  4- Driver installer logs`n5- Any other file or folder               6- Convert BW logs to Windows`n7- Timing Issue EventLog Finder  8- RI Sample results"
+    $form.Controls.Add($label3)
+
+    $label4 = New-Object System.Windows.Forms.Label
+    $label4.Location = New-Object System.Drawing.Point(10, 140)
+    $label4.Size = New-Object System.Drawing.Size(400, 20)
+    $label4.Text = "B. Logs between two timestamps: format should be as: yyyy-mm-dd hh:mm"
+    $form.Controls.Add($label4)
+
+    $textBox3 = New-Object System.Windows.Forms.TextBox
+    $textBox3.Location = New-Object System.Drawing.Point(10, 160)
+    $textBox3.Size = New-Object System.Drawing.Size(100, 20)
+    $form.Controls.Add($textBox3)
+
+    $textBox4 = New-Object System.Windows.Forms.TextBox
+    $textBox4.Location = New-Object System.Drawing.Point(180, 160)
+    $textBox4.Size = New-Object System.Drawing.Size(100, 20)
+    $form.Controls.Add($textBox4)
+
+    $form.Topmost = $true
+
+    $form.Add_Shown( { $textBox.Select() })
+    $result = $form.ShowDialog()
+    Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
+
+    if ($x -and $x2 -and $x3) {
+        Clear-Variable x3
+        Clear-Variable x2
+        Clear-Variable x
+    }
+
+    Function LatestErrorLogs {
+        if ($x) {
+            $LogPath = $x
+            $ErrorPath = "$LogPath\ErrorLogs"
+        }
+        else {
+            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            $ErrorPath = "$fpath\ErrorLogs"
+        }    
+        $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                                                    ($_.Name -match 'ComputerControl.log') -or
+                                                    ($_.Name -match 'ComputerControl.Updater.log') -or
+                                                    ($_.Name -match 'ComputerControl.Launcher.log') -or
+                                                    ($_.Name -match 'EyeAssistEngine.log') -or
+                                                    ($_.Name -match 'EyeTrackingSettings.log') -or
+                                                    ($_.Name -match 'RegionInteraction.log') -or
+                                                    ($_.Name -match 'Switcher.log') -or
+                                                    ($_.Name -match 'Switcher.Updater.log') -or
+                                                    ($_.Name -match 'ServerLog.txt') -or
+                                                    ($_.Name -match 'InteractionLog.txt') -or
+                                                    ($_.Name -match 'ConfigurationLog.txt') -or
+                                                    ($_.Name -match 'ServiceLog.txt') -or
+                                                    ($_.Name -match 'pr_log0.txt') -or
+                                                    ($_.Name -match 'Updater.log') -or
+                                                    ($_.Name -match 'Talk.Launcher.log')
+        } | Select-Object -expand Fullname
+ 
+   
+        #Creating folder
+
+        if (!(Test-Path "$ErrorPath")) {
+            Write-Host "Creating ErrorLogs folder in $ErrorPath.."
+            New-Item -Path "$ErrorPath" -ItemType Directory  
+        }
+        #Creating files
+        if (!(Test-Path "$ErrorPath\LatestErrors.txt")) {
+            New-Item -Path $ErrorPath -Name "LatestErrors.txt" -ItemType "file"
+        }
+        else {
+            Clear-Content -Path "$ErrorPath\LatestErrors.txt"
+        }
+
+        foreach ($file in $files) {
+            if (![System.IO.File]::Exists($file)) {
+                Write-Host "file with path $file doesn't exist"
+            }
+            else {
+                $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+                Get-Content -Path "$file" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+                #$content1 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
+                $content1 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx" -AllMatches | select-string -pattern 'NO_ERROR', 'Single error vector evaluation' -NotMatch |  ForEach-Object { $_.Line }
+            
+                if ($content1.length -ne 0) {
+                    Add-Content -path "$ErrorPath\LatestErrors.txt" -Value $file
+                }
+                Add-Content -path "$ErrorPath\LatestErrors.txt" -Value $content1, "`n"
+                Remove-Item "$ErrorPath\temp.txt"
+            }
+        }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+
+    Function EALogs {
+        if ($x) {
+            $LogPath = $x
+            $ErrorPath = "$LogPath\ErrorLogs"
+        }
+        else {
+            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\EyeAssist\Logs"
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            $ErrorPath = "$fpath\ErrorLogs"
+        }
+ 
+        $EALogs = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                                                    ($_.Name -match "EyeAssistEngine.*.log") -or
+                                                    ($_.Name -match "EyeTrackingSettings.*.log") -or
+                                                    ($_.Name -match "RegionInteraction.*.log")
+        } | Select-Object -expand Fullname
+        #Creating folder
+        if (!(Test-Path "$ErrorPath")) {
+            Write-Host "Creating ErrorLogs folder in $ErrorPath .."
+            New-Item -Path "$ErrorPath" -ItemType Directory   
+        }
+        #Creating files
+        if (!(Test-Path "$ErrorPath\EALogs.txt")) {
+            New-Item -Path $ErrorPath -Name "EALogs.txt" -ItemType "file"
+        } 
+        else {
+            Clear-Content -Path "$ErrorPath\EALogs.txt"
+        }
+
+        $EAcontent = Get-ChildItem -Path $EALogs -Recurse | Sort-Object name -desc | Select-Object -expand Fullname
+
+        foreach ($NewEAContent in $EAcontent) {
+            $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+            Get-Content -Path "$NewEAContent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+            #$content2 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
+            $content2 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx" -AllMatches | select-string -pattern 'Single error vector evaluation' -NotMatch | ForEach-Object { $_.Line }
+            if ($content2.length -ne 0) {
+                Add-Content -path "$ErrorPath\EALogs.txt" -Value $NewEAContent
+            } 
+            Add-Content -path "$ErrorPath\EALogs.txt" -Value $content2, "`n"
+            Remove-Item "$ErrorPath\temp.txt"
+        }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+
+    Function TTechLogs {
+        if ($x) {
+            $LogPath = $x
+            $ErrorPath = "$LogPath\ErrorLogs"
+        }
+        else {
+            $LogPath = "$ENV:ProgramData\Tobii", "$ENV:USERPROFILE\AppData\Local\Tobii"
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            $ErrorPath = "$fpath\ErrorLogs"
+        }
+
+        #Creating folder
+        if (!(Test-Path "$ErrorPath")) {
+            Write-Host "Creating ErrorLogs folder in $ErrorPath.."
+            New-Item -Path "$ErrorPath" -ItemType Directory   
+        }
+     
+        $files = @("pr_log", "ServerLog" , "InteractionLog", "ServiceLog", "ConfigurationLog", "TrayLog")
+
+        foreach ($path in $files) {
+            $newfile = "$ErrorPath\$path.txt"
+            if (!(Test-path $newfile)) {
+                New-Item -ItemType File -Path $newfile
+            }
+            else {
+                Clear-Content -Path "$newfile"
+            }
+            $TTcontents = Get-ChildItem -Include "$path*.*" -Path $LogPath -Recurse  | Sort-Object name -desc | Where-Object fullname -NotLike "$ErrorPath\$path.txt"   | Select-Object -expand Fullname
+            foreach ($TTcontent in $TTcontents) {
+                $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+                Get-Content -LiteralPath "$TTcontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+                $content3 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx" -AllMatches | select-string -pattern 'NO_ERROR', 'NoError' -NotMatch | ForEach-Object { $_.Line }
+                if ($content3.length -ne 0) { 
+                    Add-Content -path $newfile -Value $TTcontent
+                }	
+                Add-Content -path $newfile -value $content3, "`n"
+                Remove-Item "$ErrorPath\temp.txt"
+            }
+        }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+
+    Function InstallerLogs {
+        if ($x) {
+            $InstallerLogs = "$x\TOBII_INSTALLER_LOGS\TEMP"
+            $ErrorPath = "$x\ErrorLogs"
+        }
+        else {
+            $InstallerLogs = "$ENV:USERPROFILE\AppData\Local\Temp"
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            $ErrorPath = "$fpath\ErrorLogs"
+        }
+   
+        if (!(Test-Path "$ErrorPath")) {
+            Write-Host "Creating ErrorLogs folder.."
+            New-Item -Path "$ErrorPath" -ItemType Directory   
+        }
+        if (!(Test-Path "$ErrorPath\InstallerError.txt")) {
+            $ErrorFile = New-Item -Path $ErrorPath -Name "InstallerError.txt" -ItemType "file"
+        }
+        else {
+            Clear-Content -Path "$ErrorPath\InstallerError.txt"
+        }
+
+        if (Test-path $InstallerLogs) { 
+            $Installercontent = Get-ChildItem -Include "Tobii*.*" -Path $InstallerLogs -Recurse -File |  Sort-Object name -desc | Select-Object -expand Fullname
+            foreach ($NewInstallercontent in $Installercontent) {
+                $test = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+                Get-Content -Path "$NewInstallercontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+                #$content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
+                $content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx:  Error" -AllMatches | select-string -pattern "3: Error", "error status: 0", 'ErrorDialog' -NotMatch | ForEach-Object { $_.Line }
+                if ($content9.length -ne 0) { 
+                    Add-Content -path "$ErrorPath\InstallerError.txt" -Value $NewInstallercontent
+                }	
+                add-Content "$ErrorPath\InstallerError.txt" -value $content9, "`n"
+                Remove-Item "$ErrorPath\temp.txt"	
+            }
+        }
+        else { Write-Host "Files are not existed" }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+
+    Function OtherLogs {
+        $LogPath = $x
+        #if given path is a folder:
+        if ((Get-Item $LogPath) -is [System.IO.DirectoryInfo]) {
+            #Creating folder
+            $ErrorPath = "$LogPath\ErrorLogs"
+            if (!(Test-Path "$ErrorPath")) {
+                Write-Host "Creating ErrorLogs folder.."
+                New-Item -Path "$ErrorPath" -ItemType Directory   
+            }
+            #Creating files
+            if (!(Test-Path "$ErrorPath\errorlogs.txt")) {
+                New-Item -Path $ErrorPath -Name "errorlogs.txt" -ItemType "file"
+                Write-Host "creating file"
+            }
+            else {
+                Clear-Content -Path "$ErrorPath\errorlogs.txt"
+                Write-Host "cleaing"
+            }
+            $Othercontent = Get-ChildItem -Path $LogPath -file | Sort-Object name -desc | Select-Object -expand Fullname
+            foreach ($NewOthercontent in $Othercontent) {
+                New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+                Get-Content -Path "$NewOthercontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+                #$content10 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
+                $content10 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx", "WixQuietExec" -AllMatches | ForEach-Object { $_.Line }
+                if ($content10.length -eq 0) {
+                    Write-Host "empty"
+                } 
+                else {
+                    Add-Content -path "$ErrorPath\errorlogs.txt" -Value $NewOthercontent
+                }	
+                Add-Content -path "$ErrorPath\errorlogs.txt" -Value $content10, "`n"
+                Remove-Item "$ErrorPath\temp.txt"
+            }
+
+        }
+        else {
+            #or if given path is a file 
+            $LogPath2 = Split-Path -Path $LogPath
+            $ErrorPath = "$LogPath2\ErrorLogs"
+            if (!(Test-Path "$ErrorPath")) {
+                Write-Host "Creating ErrorLogs folder.."
+                New-Item -Path "$ErrorPath" -ItemType Directory   
+            }
+            #Creating files
+            if (!(Test-Path "$ErrorPath\errorlogs.txt")) {
+                New-Item -Path $ErrorPath -Name "errorlogs.txt" -ItemType "file"
+                Write-Host "creating file"
+            }
+            else {
+                Clear-Content -Path "$ErrorPath\errorlogs.txt"
+                Write-Host "cleaing"
+            }
+            New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+            Get-Content -Path "$LogPath" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
+            #$content11 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error" -AllMatches | ForEach-Object { $_.Line }
+            $content11 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "error", "WixRemoveFoldersEx", "WixQuietExec" -AllMatches | ForEach-Object { $_.Line }
+            if ($content11.length -eq 0) {
+                Write-Host "empty"
+            } 
+            else {
+                Add-Content -path "$ErrorPath\errorlogs.txt" -Value $LogPath
+            }	
+            Add-Content -path "$ErrorPath\errorlogs.txt" -Value $content11, "`n"
+            Remove-Item "$ErrorPath\temp.txt"
+        }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+
+    #C:\Users\aes\Desktop\SupportTools\accessory.tdl
+    Function BWLogConvertor {
+        Write-Host "Running BW log convertor `r`n"
+        $LogPath = $x
+        if ($LogPath -match "accessory.tdl") { 
+            $newLogPath = $LogPath -replace "accessory.tdl", ""
+        }
+        elseif ($LogPath -match "accessory") {
+            $newLogPath = $LogPath -replace "accessory", ""
+        }
+        else {
+            $newLogPath = $LogPath
+        }
+
+        #Creating files
+        if (!(Test-Path "$newLogPath\accessory.txt")) {
+            New-Item -Path $newLogPath -Name "accessory.txt" -ItemType "file"
+            Write-Host "creating file"
+        }
+        else {
+            Clear-Content -Path "$newLogPath\accessory.txt"
+            Write-Host "cleaing"
+        }
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "extract_logs.py" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+        #$logfile = "C:\Users\aes\Desktop\accessory.tdl"
+        #$textfile = "$fpath"\test2.txt"
+        $newnewLogPath = "$newLogPath\accessory.tdl"
+        $Test = Start-Process cmd "/c `"extract_logs.py  $newnewLogPath > $newLogPath\accessory.txt`""
+    }
+
+    Function TimingIssueEventLogFinder {
+
+        Write-Host "Running Timing Issue EventLog Finder `r`n"
+        $LogPath = $x
+
+        $Path = Get-ChildItem -Path $LogPath -Filter "*.evtx" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+   
+        #Creating files
+        if (!(Test-Path "$Path\TimingIssue.txt")) {
+            New-Item -Path $Path -Name "TimingIssue.txt" -ItemType "file"
+            Write-Host "creating file"
+        }
+        else {
+            Clear-Content -Path "$Path\TimingIssue.txt"
+            Write-Host "cleaing"
+        }
+        $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "TimeSyncIssueFinder.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        Set-Location $fpath
+    
+        $Test2 = Start-Process cmd "/c `"TimeSyncIssueFinder.exe -f  $LogPath > $Path\TimingIssue.txt`""
+
+    }
+
+    Function RISample {
+        Write-Host "Running RI Sample results `r`n"
+        $LogPath = $x
+        #$path = "C:\Users\aes\Desktop\tobii"
+        $content = Get-ChildItem -Path $LogPath -Recurse | Where-Object { $_.Name -match 'Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample' } | Select-Object -expand Fullname
+
+        foreach ($newcontent in $content) {
+
+            $lines = Get-Content -path $newcontent -raw
+            $lines | Select-String '\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])*\s(\d+:\d+:\d+)' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value } | Set-Content "$LogPath\text.txt"
+            #$timestamps = @([datetime]"03:37:51", [datetime]"03:37:53", [datetime]"03:37:54")
+
+            [datetime[]] $timestamps = @(Get-Content -Path "$LogPath\text.txt")
+
+            if ($timestamps.Count -lt 2) {
+                Write-Host "Only one result: " $timestamps[0]
+                return
+            }
+
+            for ($i = 0; $i -lt $timestamps.Count; $i++) {
+                $previous = $timestamps[$i]
+                $current = $timestamps[$i + 1]
+                $difference = ($current - $previous)
+                #($current - $previous) | Out-File "$path\text2.txt" -Append
+                #Add-content $Logfile -value $logstring
+                #Add-Content "$path\text2.txt" ($current - $previous)
+
+                if (($difference) -gt ("00:00:05")) {
+                    Add-Content -path "$LogPath\Results.txt" -Value $newcontent
+                    Add-Content "$LogPath\Results.txt" "Gap between $current and $previous with ($difference)`n"
+                } 
+            }
+        }
+
+        Remove-Item "$LogPath\text.txt"
+        #Remove-Variable * -ErrorAction SilentlyContinue
+
+    }
+
+    Function TimeStampBetween {
+        if ($x) {
+            $LogPath = $x
+            $ErrorPath = "$LogPath\ErrorLogs"
+        }
+        else {
+            $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            $ErrorPath = "$fpath\ErrorLogs"
+
+        }
+
+        #$date = "2020-11-22"
+        $start = Get-Date -format "yyyy-MM-dd hh:mm:ss" "$x3"
+        $end = Get-Date -format "yyyy-MM-dd hh:mm:ss" "$x4"
+  
+        write-host "start: $start"
+        write-host "end: $end"
+        # Pattern explaination # ^ matches the begginning of each line # \d matches a decimal character
+        # {4},{2},{3} repeats the previous character # so \d{4} matches any four numerals # / and : are literally / and :
+        # a period is a special regex character so it needs escaped \.
+        $pattern = "^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\."
+
+        #Creating folder
+        if (!(Test-Path "$ErrorPath")) {
+            Write-Host "Creating ErrorLogs folder in $ErrorPath.." 
+            $NewFolder = New-Item -Path "$ErrorPath" -ItemType Directory  
+        }
+
+        if ($start -match ":") {
+            $newStart = $start -replace ":" , "."
+        }
+        else { $newstart = $start }
+
+        if ($end -match ":") {
+            $newEnd = $end -replace ":" , "."
+        }
+        else { $newEnd = $end }
+
+        $textfile = "$newStart - $newEnd"
+        if (!(Test-Path "$ErrorPath\$textfile.txt")) {
+            $NewItem = New-Item -Path $ErrorPath -Name "$textfile.txt" -ItemType "file"
+            Write-Host "Creating file in $NewItem"
+        }
+        elseif (Test-Path "$ErrorPath\$textfile.txt") {
+            Clear-Content -Path "$ErrorPath\$newStart - $newEnd.txt"
+            Write-Host "$NewItem is already existing, cleaning the file"
+        }
+
+        $files = @("ServerLog", "ServiceLog", "pr_log", "InteractionLog", "ConfigurationLog", "Tray", "EyeAssistEngine", "EyeTrackingSettings", "RegionInteraction", "ComputerControl" , "Switcher", "Phone", "Talk", "Browse", "Updater")
+
+        foreach ($path in $files) {
+            Write-Host "Analysing $path and collecting logs"
+            $Servicecontent2 = Get-ChildItem -Include "$path*.log" , "$path*.txt" -Path $LogPath -Recurse  | Sort-Object name -desc | Where-Object fullname -NotLike "$ErrorPath\$path.txt" | Select-Object -expand Fullname
+            foreach ($NewServicecontent2 in $Servicecontent2) {
+                $newtemp = New-Item -Path $ErrorPath -Name "temp.txt" -ItemType "file"
+                Get-Content -Path "$NewServicecontent2" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' -replace ",", "." } | Add-Content -Path "$ErrorPath\temp.txt"
+                $content21 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse #| Select-String -Pattern "$date" -AllMatches | ForEach-Object { $_.Line }
+                $entries = $content21 | Select-String -Pattern $pattern | ForEach-Object {
+                    [pscustomobject]@{ 
+                        'Date' = [datetime]::Parse($_.Matches[0].Value) 
+                        'Line' = $_.LineNumber 
+                        'Text' = $_.Line
+                    }										 
+                }
+                $filtered = $entries | Where-Object { $_.Date -ge $start -and $_.Date -le $end } | Sort-Object Date 
+                if ($filtered) {
+                    $first = $filtered[0].Line - 1 
+                    $last = $filtered[-1].Line - 1 
+                    $content21[$first..$last] 
+                }
+                if ($filtered.length -ne 0) { 
+                    Add-Content "$ErrorPath\$textfile.txt" -Value $NewServicecontent2
+                }
+                Add-Content "$ErrorPath\$textfile.txt" -value $filtered.text, "`n"
+                Remove-Item "$ErrorPath\temp.txt"
+            }
+        }
+        [System.Windows.MessageBox]::Show('Done')
+    }
+ 
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $x = $textBox.Text
+        $x2 = $textBox2.Text
+        $x3 = $textBox3.Text
+        $x4 = $textBox4.Text
+        $x
+        $x2
+        $x3
+        $x4
+
+        if ($x2 -match "1") { 
+            LatestErrorLogs
+        }
+        elseif ($x2 -match "2") { 
+            EALogs
+        }
+        elseif ($x2 -match "3") { 
+            TTechLogs
+        }
+        elseif ($x2 -match "4") { 
+            InstallerLogs
+        }
+        elseif ($x2 -match "5") {
+            OtherLogs
+        }
+        elseif ($x2 -match "6") {
+            BWLogConvertor
+        }
+        elseif ($x2 -match "7") {
+            TimingIssueEventLogFinder
+        }    
+        elseif ($x2 -match "8") {
+            RISample
+        }
+        elseif (!($x2)) {
+            if ("$x3" -and "$x4") {
+                TimeStampBetween
+            }
+        }
+
+    }
+}
 
 #Windows forms
 $Optionlist = @("Remove Progressive Sweet", "Remove PCEye5 Bundle", "Remove all ET SW", "Remove WC&GP Bundle", "Remove VC++", "Remove PCEye Package", "Remove Communicator", "Remove Compass", "Remove TGIS only", "Remove TGIS profile calibrations", "Remove all users C5", "Backup Gaze Interaction", "Copy License")
@@ -2799,8 +3386,8 @@ $outputBox.font = New-Object System.Drawing.Font ("Consolas" , 8, [System.Drawin
 
 #Button "Start"
 $Button = New-Object System.Windows.Forms.Button
-$Button.Location = New-Object System.Drawing.Size(10, 60)
-$Button.Size = New-Object System.Drawing.Size(110, 30)
+$Button.Location = New-Object System.Drawing.Size(10, 80)
+$Button.Size = New-Object System.Drawing.Size(180, 50)
 $Button.Text = "Start"
 $Button.Font = New-Object System.Drawing.Font ("" , 12, [System.Drawing.FontStyle]::Regular)
 $Form.Controls.Add($Button)
@@ -2808,210 +3395,228 @@ $Button.Add_Click{ selectedscript }
 
 #B1 Button1 "List Tobii Software"
 $Button1 = New-Object System.Windows.Forms.Button
-$Button1.Location = New-Object System.Drawing.Size(420, 0)
+$Button1.Location = New-Object System.Drawing.Size(420, 30)
 $Button1.Size = New-Object System.Drawing.Size(150, 30)
 $Button1.Text = "All versions"
 $Button1.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button1)
-$Button1.Add_Click{ ListApps }
+$Button1.Add_Click{ Listapps }
 
-#B2 Button2 "HW Info"
+#B2 Button2 "List active Tobii processes"
 $Button2 = New-Object System.Windows.Forms.Button
-$Button2.Location = New-Object System.Drawing.Size(420, 30)
+$Button2.Location = New-Object System.Drawing.Size(420, 60)
 $Button2.Size = New-Object System.Drawing.Size(150, 30)
-$Button2.Text = "HW Info"
+$Button2.Text = "Get Services"
 $Button2.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button2)
-$Button2.Add_Click{ HWInfo }
+$Button2.Add_Click{ GetOtherInfo }
 
-#B3 Button3 "List active Tobii processes"
+#B3 Button3 Restart Services
 $Button3 = New-Object System.Windows.Forms.Button
-$Button3.Location = New-Object System.Drawing.Size(420, 60)
+$Button3.Location = New-Object System.Drawing.Size(420, 90)
 $Button3.Size = New-Object System.Drawing.Size(150, 30)
-$Button3.Text = "Get Services"
+$Button3.Text = "Restart Services"
 $Button3.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button3)
-$Button3.Add_Click{ GetOtherInfo }
+$Button3.Add_Click{ RestartProcesses }
 
-#B4 Button4 Restart Services
+#B4 Button4 "ET fw"
 $Button4 = New-Object System.Windows.Forms.Button
-$Button4.Location = New-Object System.Drawing.Size(420, 90)
+$Button4.Location = New-Object System.Drawing.Size(420, 120)
 $Button4.Size = New-Object System.Drawing.Size(150, 30)
-$Button4.Text = "Restart Services"
+$Button4.Text = "Firmware v / Upgrade"
 $Button4.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button4)
-$Button4.Add_Click{ RestartProcesses }
+$Button4.Add_Click{ ETfw }
 
-#B5 Button5 "ET fw"
+#B5 Button5 "Show Track status"
 $Button5 = New-Object System.Windows.Forms.Button
-$Button5.Location = New-Object System.Drawing.Size(420, 120)
+$Button5.Location = New-Object System.Drawing.Size(420, 150)
 $Button5.Size = New-Object System.Drawing.Size(150, 30)
-$Button5.Text = "Firmware v / Upgrade"
+$Button5.Text = "Show Track Status"
 $Button5.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button5)
-$Button5.Add_Click{ ETfw }
+$Button5.Add_Click{ TrackStatus }
 
-#B6 Button6 "Show Track status"
+#B6 Button6 "WCF"
 $Button6 = New-Object System.Windows.Forms.Button
-$Button6.Location = New-Object System.Drawing.Size(420, 150)
+$Button6.Location = New-Object System.Drawing.Size(420, 180)
 $Button6.Size = New-Object System.Drawing.Size(150, 30)
-$Button6.Text = "Show/hide Track Status"
+$Button6.Text = "WCF"
 $Button6.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button6)
-$Button6.Add_Click{ TrackStatus }
+$Button6.Add_Click{ WCF }
 
-#B7 Button7 "WCF"
+#B7 Button7 "PartnerWindowController"
 $Button7 = New-Object System.Windows.Forms.Button
-$Button7.Location = New-Object System.Drawing.Size(420, 180)
+$Button7.Location = New-Object System.Drawing.Size(420, 210)
 $Button7.Size = New-Object System.Drawing.Size(150, 30)
-$Button7.Text = "WCF"
+$Button7.Text = "Fix Partner Window"
 $Button7.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button7)
-$Button7.Add_Click{ WCF }
+$Button7.Add_Click{ PartnerWindowController }
 
-#B8 Button8 "SMBios"
+#B8 Button8 "DeleteEmailsC5"
 $Button8 = New-Object System.Windows.Forms.Button
-$Button8.Location = New-Object System.Drawing.Size(420, 210)
-$Button8.Size = New-Object System.Drawing.Size(150, 35)
-$Button8.Text = "SMBIOS"
+$Button8.Location = New-Object System.Drawing.Size(420, 240)
+$Button8.Size = New-Object System.Drawing.Size(150, 30)
+$Button8.Text = "Delete Emails in C5"
 $Button8.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button8)
-$Button8.Add_Click{ SMBios }
+$Button8.Add_Click{ DeleteEmailsC5 }
 
-#B9 Button9 "Reset IS5 to bootloader"
+#B9 Button9 "SMBios"
 $Button9 = New-Object System.Windows.Forms.Button
-$Button9.Location = New-Object System.Drawing.Size(420, 245)
-$Button9.Size = New-Object System.Drawing.Size(75, 35)
-$Button9.Text = "Reset ET"
+$Button9.Location = New-Object System.Drawing.Size(420, 270)
+$Button9.Size = New-Object System.Drawing.Size(150, 30)
+$Button9.Text = "SMBIOS"
 $Button9.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button9)
-$Button9.Add_Click{ resetBOOT }
+$Button9.Add_Click{ SMBios }
 
-#B10 Button10 "RetrieveUnreleased"
+#B10 Button10 "Reset IS5 to bootloader"
 $Button10 = New-Object System.Windows.Forms.Button
-$Button10.Location = New-Object System.Drawing.Size(495, 245)
-$Button10.Size = New-Object System.Drawing.Size(75, 35)
-$Button10.Text = "RetrieveUN"
+$Button10.Location = New-Object System.Drawing.Size(420, 300)
+$Button10.Size = New-Object System.Drawing.Size(75, 30)
+$Button10.Text = "Reset ET"
 $Button10.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button10)
-$Button10.Add_Click{ RetrieveUnreleased }
+$Button10.Add_Click{ resetBOOT }
 
-#B11 Button11 "Delete services"
+#B11 Button11 "RetrieveUnreleased"
 $Button11 = New-Object System.Windows.Forms.Button
-$Button11.Location = New-Object System.Drawing.Size(420, 280)
-$Button11.Size = New-Object System.Drawing.Size(75, 35)
-$Button11.Text = "Delete Services"
+$Button11.Location = New-Object System.Drawing.Size(495, 300)
+$Button11.Size = New-Object System.Drawing.Size(75, 30)
+$Button11.Text = "UNRetr."
 $Button11.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button11)
-$Button11.Add_Click{ DeleteServices }
+$Button11.Add_Click{ RetrieveUnreleased }
 
-#B12 Button12 "Remove Drivers"
+#B12 Button12 "Delete services"
 $Button12 = New-Object System.Windows.Forms.Button
-$Button12.Location = New-Object System.Drawing.Size(495, 280)
-$Button12.Size = New-Object System.Drawing.Size(75, 35)
-$Button12.Text = "Delete Drivers"
+$Button12.Location = New-Object System.Drawing.Size(420, 330)
+$Button12.Size = New-Object System.Drawing.Size(75, 30)
+$Button12.Text = "Del Serv"
 $Button12.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button12)
-$Button12.Add_Click{ RemoveDrivers }
+$Button12.Add_Click{ DeleteServices }
 
-#B13 Button13 "StreamEngineTest"
+#B13 Button13 "Remove Drivers"
 $Button13 = New-Object System.Windows.Forms.Button
-$Button13.Location = New-Object System.Drawing.Size(420, 315)
-$Button13.Size = New-Object System.Drawing.Size(75, 35)
-$Button13.Text = "SE-Test"
+$Button13.Location = New-Object System.Drawing.Size(495, 330)
+$Button13.Size = New-Object System.Drawing.Size(75, 30)
+$Button13.Text = "Del Drive"
 $Button13.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button13)
-$Button13.Add_Click{ SETest }
+$Button13.Add_Click{ RemoveDrivers }
 
-#B14 Button14 "InternalSE"
+#B14 Button14 "StreamEngineTest"
 $Button14 = New-Object System.Windows.Forms.Button
-$Button14.Location = New-Object System.Drawing.Size(495, 315)
-$Button14.Size = New-Object System.Drawing.Size(75, 35)
-$Button14.Text = "Internal SE"
+$Button14.Location = New-Object System.Drawing.Size(420, 360)
+$Button14.Size = New-Object System.Drawing.Size(75, 30)
+$Button14.Text = "SE-Test"
 $Button14.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button14)
-$Button14.Add_Click{ InternalSE }
+$Button14.Add_Click{ SETest }
 
-#B15 Button15 "SetDebugLogging"
+#B15 Button15 "InternalSE"
 $Button15 = New-Object System.Windows.Forms.Button
-$Button15.Location = New-Object System.Drawing.Size(420, 350)
-$Button15.Size = New-Object System.Drawing.Size(75, 35)
-$Button15.Text = "DebugLog"
+$Button15.Location = New-Object System.Drawing.Size(495, 360)
+$Button15.Size = New-Object System.Drawing.Size(75, 30)
+$Button15.Text = "Intern SE"
 $Button15.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button15)
-$Button15.Add_Click{ SetDebugLogging }
+$Button15.Add_Click{ InternalSE }
 
-#B16 Button16 "Diagnostic"
+#B16 Button16 "SetDebugLogging"
 $Button16 = New-Object System.Windows.Forms.Button
-$Button16.Location = New-Object System.Drawing.Size(495, 350)
-$Button16.Size = New-Object System.Drawing.Size(75, 35)
-$Button16.Text = "RIDiagnostic"
+$Button16.Location = New-Object System.Drawing.Size(420, 390)
+$Button16.Size = New-Object System.Drawing.Size(75, 30)
+$Button16.Text = "Debug"
 $Button16.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button16)
-$Button16.Add_Click{ Diagnostic }
+$Button16.Add_Click{ SetDebugLogging }
 
-#B17 Button17 "Check ET connection through Service"
+#B17 Button17 "Diagnostic"
 $Button17 = New-Object System.Windows.Forms.Button
-$Button17.Location = New-Object System.Drawing.Size(420, 385)
-$Button17.Size = New-Object System.Drawing.Size(75, 35)
-$Button17.Text = "ET con."
+$Button17.Location = New-Object System.Drawing.Size(495, 390)
+$Button17.Size = New-Object System.Drawing.Size(75, 30)
+$Button17.Text = "RIDia"
 $Button17.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button17)
-$Button17.Add_Click{ ETConnection }
+$Button17.Add_Click{ Diagnostic }
 
-#B18 Button18 "EAProfileCreation"
+#B18 Button18 "Check ET connection through Service"
 $Button18 = New-Object System.Windows.Forms.Button
-$Button18.Location = New-Object System.Drawing.Size(495, 385)
-$Button18.Size = New-Object System.Drawing.Size(75, 35)
-$Button18.Text = "EA Profile"
+$Button18.Location = New-Object System.Drawing.Size(420, 420)
+$Button18.Size = New-Object System.Drawing.Size(75, 30)
+$Button18.Text = "ET con."
 $Button18.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button18)
-$Button18.Add_Click{ EAProfileCreation }
+$Button18.Add_Click{ ETConnection }
 
-#B19 Button19 "ETSamples"
+#B19 Button19 "EAProfileCreation"
 $Button19 = New-Object System.Windows.Forms.Button
-$Button19.Location = New-Object System.Drawing.Size(420, 420)
-$Button19.Size = New-Object System.Drawing.Size(75, 35)
-$Button19.Text = "RI Samples"
+$Button19.Location = New-Object System.Drawing.Size(495, 420)
+$Button19.Size = New-Object System.Drawing.Size(75, 30)
+$Button19.Text = "EA Profile"
 $Button19.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button19)
-$Button19.Add_Click{ ETSamples }
+$Button19.Add_Click{ EAProfileCreation }
 
-#B20 Button20 "BatteryLog"
+#B20 Button20 "ETSamples"
 $Button20 = New-Object System.Windows.Forms.Button
-$Button20.Location = New-Object System.Drawing.Size(495, 420)
-$Button20.Size = New-Object System.Drawing.Size(75, 35)
-$Button20.Text = "Battery Log"
+$Button20.Location = New-Object System.Drawing.Size(420, 450)
+$Button20.Size = New-Object System.Drawing.Size(75, 30)
+$Button20.Text = "RI Samp"
 $Button20.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button20)
-$Button20.Add_Click{ BatteryLog }
+$Button20.Add_Click{ RISamples }
 
-#B21 Button21 "Sleeper"
+#B21 Button21 "BatteryLog"
 $Button21 = New-Object System.Windows.Forms.Button
-$Button21.Location = New-Object System.Drawing.Size(420, 455)
-$Button21.Size = New-Object System.Drawing.Size(75, 35)
-$Button21.Text = "Sleeper"
+$Button21.Location = New-Object System.Drawing.Size(495, 450)
+$Button21.Size = New-Object System.Drawing.Size(75, 30)
+$Button21.Text = "Battery"
 $Button21.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button21)
-$Button21.Add_Click{ Sleeper }
+$Button21.Add_Click{ BatteryLog }
 
-#B21 Button21 "Deployment"
-$Button21 = New-Object System.Windows.Forms.Button
-$Button21.Location = New-Object System.Drawing.Size(495, 455)
-$Button21.Size = New-Object System.Drawing.Size(75, 35)
-$Button21.Text = "Deployment"
-$Button21.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
-$form.Controls.add($Button21)
-$Button21.Add_Click{ Deployment }
-
-#B22 Button22 "LogCollector"
+#B22 Button22 "Sleeper"
 $Button22 = New-Object System.Windows.Forms.Button
-$Button22.Location = New-Object System.Drawing.Size(420, 490)
-$Button22.Size = New-Object System.Drawing.Size(75, 35)
-$Button22.Text = "LogCollector"
+$Button22.Location = New-Object System.Drawing.Size(420, 480)
+$Button22.Size = New-Object System.Drawing.Size(75, 30)
+$Button22.Text = "Sleeper"
 $Button22.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button22)
-$Button22.Add_Click{ LogCollector }
+$Button22.Add_Click{ Sleeper }
+
+#B23 Button23 "USBLogView"
+$Button23 = New-Object System.Windows.Forms.Button
+$Button23.Location = New-Object System.Drawing.Size(495, 480)
+$Button23.Size = New-Object System.Drawing.Size(75, 30)
+$Button23.Text = "USBLog"
+$Button23.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button23)
+$Button23.Add_Click{ USBLogView }
+
+#B24 Button24 "Deployment"
+$Button24 = New-Object System.Windows.Forms.Button
+$Button24.Location = New-Object System.Drawing.Size(495, 510)
+$Button24.Size = New-Object System.Drawing.Size(75, 30)
+$Button24.Text = "Deploy"
+$Button24.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button24)
+$Button24.Add_Click{ Deployment }
+
+#B25 Button25 "LogCollector"
+$Button25 = New-Object System.Windows.Forms.Button
+$Button25.Location = New-Object System.Drawing.Size(420, 510)
+$Button25.Size = New-Object System.Drawing.Size(75, 30)
+$Button25.Text = "Log"
+$Button25.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button25)
+$Button25.Add_Click{ LogCollector }
 
 #Form name + activate form.
 $Form.Text = $fileversion
