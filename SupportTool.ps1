@@ -1,4 +1,4 @@
-﻿#v1.6.2
+﻿#v1.6.3
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
@@ -182,7 +182,7 @@ Function UninstallProgressiveSweet {
             $newname2 = $test + "Launcher (Beta)"
             $newname3 = $Uninstname + " Updater Service"
             $newname4 = $Uninstname + " Launcher"
-            
+
             $TobiiVer2 = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
             Get-ItemProperty  | Where-Object { 
                 ($_.Displayname -eq "$Uninstname") -or 
@@ -195,10 +195,84 @@ Function UninstallProgressiveSweet {
                 $Displayname = $tobiivers.Displayname
                 $Outputbox.Appendtext( "Removing - " + "$Displayname`r`n" )
                 $uninst = $tobiivers.UninstallString -replace "msiexec.exe", "" -Replace "/I", "" -Replace "/X", ""
-                $tobiivers
+
                 start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
             }
 
+            $BrowseBetaPath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse Beta", 
+                "$ENV:ProgramData\Tobii Dynavox\Browse Beta", 
+                "$ENV:ProgramData\Tobii Dynavox\Pegasus Review",
+                "HKCU:\Software\Tobii Dynavox\Browse Updater Service Beta" )
+            $BrowsePath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse", 
+                "$ENV:ProgramData\Tobii Dynavox\Browse")
+            $TalkBetaPath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk Beta", 
+                "$ENV:ProgramData\Tobii Dynavox\Talk Beta",
+                "HKCU:\Software\Tobii Dynavox\Talk Updater Service Beta")
+            $SwitcherBetaPath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher Beta", 
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\App Switcher Review", 
+                "$ENV:ProgramData\Tobii Dynavox\Switcher Beta")
+            $SwitcherPath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher", 
+                "$ENV:ProgramData\Tobii Dynavox\Switcher")
+            $CCReviewPath = (
+                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Computer Control Review", 
+                "$ENV:ProgramData\Tobii Dynavox\Computer Control Review",
+                "HKCU:\Software\Tobii Dynavox\Computer Control Review",
+                "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Updater Service Review"
+            )
+            $PhoneBetaPath = (
+                "$ENV:ProgramData\Tobii Dynavox\Phone Updater Service Beta",
+                "$Env:USERPROFILE\AppData\Local\Tobii Dynavox\Phone Beta\",
+                "HKCU:\Software\Tobii Dynavox\Phone Updater Service Review")
+
+            $TalkPath = ("$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk")
+
+            if ($Uninstname -eq "Tobii Dynavox Browse (Beta)") {
+                if (Test-Path $BrowseBetaPath) {
+                    $Outputbox.appendtext( "Removing - " + "$BrowseBetaPath`r`n" )
+                    Remove-Item $BrowseBetaPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Browse") {
+                if (Test-Path $BrowsePath) {
+                    $Outputbox.appendtext( "Removing - " + "$BrowsePath`r`n" )
+                    Remove-Item $BrowsePath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Talk (Beta)") {
+                if (Test-Path $TalkBetaPath) {
+                    $Outputbox.appendtext( "Removing - " + "$TalkBetaPath`r`n" )
+                    Remove-Item $TalkBetaPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Switcher (Beta)") {
+                if (Test-Path $SwitcherBetaPath) {
+                    $Outputbox.appendtext( "Removing - " + "$SwitcherBetaPath`r`n" )
+                    Remove-Item $SwitcherBetaPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Switcher") {
+                if (Test-Path $SwitcherPath) {
+                    $Outputbox.appendtext( "Removing - " + "$SwitcherPath`r`n" )
+                    Remove-Item $SwitcherPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Control (Beta)") {
+                if (Test-Path $CCReviewPath) {
+                    $Outputbox.appendtext( "Removing - " + "$CCReviewPath`r`n" )
+                    Remove-Item $CCReviewPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Control (Beta)") {
+                if (Test-Path $CCReviewPath) {
+                    $Outputbox.appendtext( "Removing - " + "$CCReviewPath`r`n" )
+                    Remove-Item $CCReviewPath -Recurse -Force -ErrorAction Ignore
+                }
+            }
         }
     }
     
@@ -267,6 +341,7 @@ Function UninstallPCEye5Bundle {
     $paths = (
         "C:\Program Files (x86)\Tobii Dynavox\Eye Tracking Settings",	
         "C:\Program Files (x86)\Tobii Dynavox\Eye Assist",
+        "C:\Program Files (x86)\Tobii Dynavox\Update Notifier",
         "C:\Program Files\Tobii\Tobii EyeX",
         "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\EyeAssist",
         "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\App Switcher",
@@ -277,6 +352,10 @@ Function UninstallPCEye5Bundle {
         "$ENV:ProgramData\Tobii Dynavox\EyeAssist",
         "$ENV:ProgramData\Tobii Dynavox\Computer Control",
         "$ENV:ProgramData\Tobii Dynavox\Update Notifier",
+        "$ENV:ProgramData\Tobii\Statistics",
+        "$ENV:ProgramData\Tobii\Tobii Interaction",
+        "$ENV:ProgramData\Tobii\Tobii Platform Runtime",
+        "$ENV:ProgramData\Tobii\EulaHasBeenAccepted.txt",
         "$ENV:ProgramData\HelloDMFT" )
 
     foreach ($path in $paths) {
@@ -359,7 +438,7 @@ Function UninstallTobiiDeviceDriversForWindows {
         $Outputbox.appendtext( "Done! `r`n" )
         $outputbox.appendtext("`r`n")
     } 
-    else { $outputbox.appendtext( "No need to run the script") }
+    else { $outputbox.appendtext( "No need to run the script`r`n") }
 
     $GetProcess = stop-process -Name "*TobiiDynavox*" -Force
     if ($GetProcess) {
@@ -417,7 +496,12 @@ Function UninstallTobiiDeviceDriversForWindows {
         "$ENV:ProgramData\Tobii\HelloDMFT",
         "$ENV:ProgramData\Tobii\Statistics",
         "$ENV:ProgramData\Tobii\Tobii Interaction",
-        "$ENV:ProgramData\Tobii\Tobii Stream Engine"
+        "$ENV:ProgramData\Tobii\Tobii Stream Engine",
+        "$ENV:ProgramData\Tobii\Statistics",
+        "$ENV:ProgramData\Tobii\Tobii Interaction",
+        "$ENV:ProgramData\Tobii\Tobii Platform Runtime",
+        "$ENV:ProgramData\Tobii\EulaHasBeenAccepted.txt",
+        "$Env:USERPROFILE\AppData\Local\Tobii_AB\"
     )
 
     foreach ($path in $paths) {
@@ -431,7 +515,8 @@ Function UninstallTobiiDeviceDriversForWindows {
         "HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeX",
         "HKCU:\Software\Tobii\EyeAssist",
         "HKCU:\Software\Tobii\EyeX",
-        "HKCU:\Software\Tobii\Vouchers"
+        "HKCU:\Software\Tobii\Vouchers",
+        "HKCU:\Software\Tobii\GameHub"
     )
 
     foreach ($Key in $Keys) {
@@ -523,6 +608,7 @@ Function UninstallWCGP {
         "$ENV:ProgramData\Tobii Dynavox\Tobii.Licensing\Windows Control\",
         "$ENV:ProgramData\Tobii Dynavox\Tobii.Licensing\Gaze Point\",
         "$ENV:ProgramData\Tobii Dynavox\Windows Control Configuration Guide\",
+        "$ENV:ProgramData\Tobii Dynavox\Gaze Selection",
         "$ENV:ProgramData\Tobii\Statistics\",
         "$ENV:ProgramData\Tobii\Tobii Interaction\",
         "$ENV:ProgramData\Tobii\Tobii Stream Engine\",
@@ -1361,9 +1447,9 @@ Function TrackStatus {
 Function LogCollector {
     $outputBox.clear()
     $outputbox.appendtext("Start `r`n")
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "LogCollectorTool_V0.7.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "LogCollectorTool_V0.8.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     Set-Location $fpath
-    .\LogCollectorTool_V0.7.ps1
+    .\LogCollectorTool_V0.8.ps1
     $outputbox.appendtext("Done `r`n")
 }
 
@@ -1412,22 +1498,22 @@ Function DriverSetup {
     $outputBox.clear()
     $outputbox.appendtext("Start `r`n")
     $LogPath = "$ENV:USERPROFILE\AppData\Local\Temp"
-    $LogPath2 = "$env:USERPROFILE\Desktop"
+    #$LogPath2 = "$env:USERPROFILE\Desktop"
 
-    $ErrorPath = "$LogPath2\ErrorLogs"
+    $ErrorPath = "$LogPath\ErrorLogs"
     if (!(Test-Path "$ErrorPath")) {
-        $outputbox.appendtext( "Creating ErrorLogs folder..")
+        $outputbox.appendtext( "Creating ErrorLogs folder.. `r`n")
         New-Item -Path "$ErrorPath" -ItemType Directory   
     }
     if (!(Test-Path "$ErrorPath\InstallerError.txt") -or !(Test-Path "$ErrorPath\InstallerError2.txt")) {
         $ErrorFile = New-Item -Path $ErrorPath -Name "InstallerError.txt" -ItemType "file"
         $ErrorFile2 = New-Item -Path $ErrorPath -Name "InstallerError2.txt" -ItemType "file"
-        $outputbox.appendtext( "creating file")
+        $outputbox.appendtext( "creating file `r`n")
     }
     else {
         Clear-Content -Path "$ErrorPath\InstallerError.txt"
         Clear-Content -Path "$ErrorPath\InstallerError2.txt"
-        $outputbox.appendtext( "cleaing")
+        $outputbox.appendtext( "cleaing `r`n")
     }
     Set-Location $LogPath
     $Installercontent = Get-ChildItem "tobii*.log" -Recurse -File | Sort-Object name -desc | Select-Object -expand Fullname
@@ -1436,12 +1522,12 @@ Function DriverSetup {
         Get-Content -Path "$NewInstallercontent" -Raw | ForEach-Object -Process { $_ -replace "- `r`n", '- ' } | Add-Content -Path "$ErrorPath\temp.txt"
         $string = "Executing\s+op\:\s+CustomActionSchedule\(Action\=DisconnectDevices,ActionType\=3073,Source\=BinaryData,Target\=WixQuietExec,CustomActionData\="
         $content9 = Get-ChildItem -path "$ErrorPath\temp.txt" -Recurse | Select-String -Pattern "$string" -AllMatches | ForEach-Object -Process { $_ -replace ".*CustomActionData=" -replace "-inf.*" } | ForEach-Object -Process { $_ -replace ("`"", "") }
-        add-Content $ErrorFile -value $content9, "`n"
+        add-Content "$ErrorPath\InstallerError.txt" -value $content9, "`n"
         Remove-Item "$ErrorPath\temp.txt"
     }
 
     if ($Null -eq (Get-Content "$ErrorPath\InstallerError.txt")) {
-        $outputbox.appendtext( "File is Empty")
+        $outputbox.appendtext( "File is Empty `r`n")
     }
     else {
         $tester3 = (Get-Content "$ErrorPath\InstallerError.txt") | Where-Object { $_.trim() -ne "" } | set-content "$ErrorPath\InstallerError.txt"
@@ -1456,14 +1542,16 @@ Function DriverSetup {
     #Remove-Item "$ErrorPath\InstallerError.txt"
 
     if ($Null -eq (Get-Content "$ErrorPath\InstallerError2.txt")) {
-        $OutputBox.AppendText( "File 2 is Empty`r`n")
+        $OutputBox.AppendText( "File is empty, no need to copy driver setup`r`n")
     }
     else {
         $test4 = Get-Content -Path "$ErrorPath\InstallerError2.txt"
         foreach ($tests4 in $test4) {
-
+            $OutputBox.AppendText("Copy DriverSetup to specific path`r`n")
             New-Item -ItemType Directory -Force -Path $tests4
-            Copy-Item -Path ("$env:USERPROFILE\Desktop\SupportTools\R&D\DriverSetup.exe") -Destination $tests4
+            $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "DriverSetup.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+            Set-Location $fpath
+            Copy-Item -Path ("DriverSetup.exe") -Destination $tests4
         }
     }
     $outputbox.appendtext("Done `r`n")
@@ -1493,7 +1581,7 @@ Function uninstall_gibbon {
         $outputbox.appendtext("`r`n")
         $outputbox.appendtext("Done `r`n")
     } 
-    else { $outputbox.appendtext( "No need to run the script") }
+    else { $outputbox.appendtext( "No need to run the script`r`n") }
 }
 
 #B15 SetDebugLogging
@@ -1504,7 +1592,8 @@ Function SetDebugLogging {
     #Run the attached script.
     #Tobii Service is then restarted and new log levels are set. If you are experiencing issues, please restart Tobii Service.
     #https://confluence.tobii.intra/pages/viewpage.action?spaceKey=EYEX&title=Changing+log+level
-
+    
+    #$outputBox.clear()
     param (    
         [switch]$reset,
         [ValidateSet( 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL')]
@@ -1565,49 +1654,60 @@ Function SetDebugLogging {
 
 #B16 
 Function ModelCheck {
+    $outputBox.clear()
+    $RegPath1 = Test-Path -Path HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\
+    $RegPath2 = Test-Path -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\
+    $RegPath3 = Test-Path -Path HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\
 
-    $TobiiVer1 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\ 
-    $TobiiVer2 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\ 
-    $TobiiVer3 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\
+    if (Test-Path $RegPath1) {
+        $TobiiVer1 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\
+    }
+    if (Test-Path $RegPath2) {
+        $TobiiVer2 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation\
+    }
+    if (Test-Path $RegPath3) {
+        $TobiiVer3 = Get-ItemProperty  -Path  HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\
+    }
 
-    if ($TobiiVer1.EyeTrackerModel -eq "EM12") {
-        #TBD
-        $OutputBox.AppendText("Eye tracker is TEM12")
+ 
+    if ($TobiiVer1.EyeTrackerModel -eq "PCEye5") {
+        #Checked
+        $OutputBox.AppendText("Eye tracker is IS514`r`n")
     }
-    elseif ($TobiiVer1.EyeTrackerModel -eq "PCEye5") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is IS514")
+    elseif ($TobiiVer1.ProductType -eq "TDG16") {
+        #Checked
+        $OutputBox.AppendText("Eye tracker is TDG16`r`n")
     }
-    elseif ($TobiiVer1.EyeTrackerModel -eq "TDG16") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is TDG16")
+    elseif ($TobiiVer1.ProductType -eq "TDH10") {
+        #
+        $OutputBox.AppendText("Eye tracker is TDH10`r`n")
     }
-    elseif ($TobiiVer.ProductType -eq "TDH10") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is TDH10")
+    elseif ($TobiiVer1.ProductType -eq "TDTW7") {
+        #
+        $OutputBox.AppendText("Eye tracker is TDTW7`r`n")
     }
-    elseif ($TobiiVer.ProductType -eq "TDTW7") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is TDTW7")
-    }
-    elseif ($TobiiVer.ProductType -eq "TDG10") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is TDG10")
+    elseif ($TobiiVer1.ProductType -eq "TDG10") {
+        #
+        $OutputBox.AppendText("Eye tracker is TDG10`r`n")
     }
     elseif ($TobiiVer1.ProductType -eq "I-Series" -and $TobiiVer1.ProductModel -eq "I-12+") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is TDI12-xxxxx")
+        #
+        $OutputBox.AppendText("Eye tracker is TDI12-xxxxx`r`n")
+    }
+    elseif ($TobiiVer1.EyeTrackerModel -eq "EM12") {
+        #
+        $OutputBox.AppendText("Eye tracker is TEM12`r`n")
     }
     elseif ($TobiiVer3.EyeTrackerModel -eq "PCEye2") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is PCEGO or PCEye Mini")
+        #
+        $OutputBox.AppendText("Eye tracker is PCEGO or PCEye Mini`r`n")
     }
     elseif ($TobiiVer3.EyeTrackerModel -eq "PCEyeExplore") {
-        #checked
-        $OutputBox.AppendText("Eye tracker is PCEyeExplore")
+        #
+        $OutputBox.AppendText("Eye tracker is PCEyeExplore`r`n")
     }
     else {
-        $OutputBox.AppendText( "No match," + $TobiiVer1.EyeTrackerModel + "and " + $TobiiVer.ProductType) 
+        $OutputBox.AppendText( "No match," + $TobiiVer1.EyeTrackerModel + "and " + $TobiiVer.ProductType + "`r`n") 
 
     }
     #$TobiiVer1
@@ -1616,7 +1716,127 @@ Function ModelCheck {
 }
 
 #B17 
+Function HWInfo {
+    $outputBox.clear()
+    #Creating folder
+    $Path = Get-ChildItem -Path $PSScriptRoot -Filter "SupportTool v1.6.2.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $Path
+    #$Path = "C:\Users\aes\Desktop"
+    $infofolder = "$Path\infofolder"
+    if (!(Test-Path "$infofolder")) {
+        $OutputBox.AppendText( "Creating info folder..`r`n")
+        New-Item -Path "$infofolder" -ItemType Directory  
+    }
+    else {
+        Remove-Item -Path $infofolder\* -Recurse 
+        $OutputBox.AppendText( "remove files`r`n")
+    }
 
+
+    #Creating files
+    if (!(Test-Path "$infofolder\DesktopMonitors.txt") -or 
+        !(Test-Path "$infofolder\hidDevices.txt") -or 
+        !(Test-Path "$infofolder\motherboard.txt") -or 
+        !(Test-Path "$infofolder\operatingSystem.txt") -or 
+        !(Test-Path "$infofolder\pnpDevices.txt") -or 
+        !(Test-Path "$infofolder\usbControllers.txt") -or 
+        !(Test-Path "$infofolder\USBDeviceTree1.txt") -or 
+        !(Test-Path "$infofolder\USBDeviceTree2.txt") -or
+        !(Test-Path "$infofolder\Monitor1.txt") -or 
+        !(Test-Path "$infofolder\Monitor2.txt") -or 
+        !(Test-Path "$infofolder\Display.txt") -or 
+        !(Test-Path "$infofolder\PersistedData1.txt") -or 
+        !(Test-Path "$infofolder\PersistedData2.txt") -or
+        !(Test-Path "$infofolder\ETInfo.txt")
+    ) {
+        New-Item -Path $infofolder -Name "DesktopMonitors.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "hidDevices.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "motherboard.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "operatingSystem.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "pnpDevices.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "usbControllers.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "USBDeviceTree1.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "USBDeviceTree2.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "Monitor1.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "Monitor2.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "Display.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "PersistedData1.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "PersistedData2.txt" -ItemType "file"
+        New-Item -Path $infofolder -Name "ETInfo.txt" -ItemType "file"
+        $OutputBox.AppendText( "creating file`r`n")
+    }
+    else {
+        Clear-Content -Path "$infofolder\DesktopMonitors.txt"
+        Clear-Content -Path "$infofolder\hidDevices.txt"
+        Clear-Content -Path "$infofolder\motherboard.txt"
+        Clear-Content -Path "$infofolder\operatingSystem.txt"
+        Clear-Content -Path "$infofolder\pnpDevices.txt"
+        Clear-Content -Path "$infofolder\usbControllers.txt"
+        Clear-Content -Path "$infofolder\USBDeviceTree1.txt"
+        Clear-Content -Path "$infofolder\USBDeviceTree2.txt"
+        Clear-Content -Path "$infofolder\Monitor1.txt"
+        Clear-Content -Path "$infofolder\Monitor2.txt"
+        Clear-Content -Path "$infofolder\Display.txt"
+        Clear-Content -Path "$infofolder\PersistedData1.txt"
+        Clear-Content -Path "$infofolder\PersistedData2.txt"
+        Clear-Content -Path "$infofolder\ETInfo.txt"
+        $OutputBox.AppendText( "cleaing`r`n")
+    }
+
+    $DesktopMonitors = Get-CimInstance -ClassName Win32_DesktopMonitor -Property *  | Out-File -FilePath $infofolder\DesktopMonitors.txt
+    $hidDevices = Get-WmiObject Win32_PnPSignedDriver | Where-Object devicename -Like "*tobii*" | select devicename, driverversion | Out-File -FilePath $infofolder\hidDevices.txt
+    $motherboard = Get-CimInstance -ClassName Win32_ComputerSystem | 
+    Select-Object -Property Mainboard, AdminPasswordStatus, AutomaticManagedPagefile, AutomaticResetBootOption, AutomaticResetCapability, BootOptionOnLimit, BootOptionOnWatchDog, BootROMSupported, BootStatus, BootupState, Caption, ChassisBootupState, ChassisSKUNumber, CreationClassName, CurrentTimeZone, DaylightInEffect, Description, DNSHostName, Domain, DomainRole, EnableDaylightSavingsTime, FrontPanelResetStatus, HypervisorPresent, InfraredSupported, InitialLoadInfo, InstallDate, KeyboardPasswordStatus, LastLoadInfo, Manufacturer, Model, Name, NameFormat, NetworkServerModeEnabled, NumberOfLogicalProcessors, NumberOfProcessors, OEMLogoBitmap, OEMStringArray, PartOfDomain, PauseAfterReset, PCSystemType, PCSystemTypeEx, PowerManagementCapabilities, PowerManagementSupported, PowerOnPasswordStatus, PowerState, PowerSupplyState, PrimaryOwnerContact, PrimaryOwnerName, ResetCapability, ResetCount, ResetLimit, Roles, Status, SupportContactDescription, SystemFamily, SystemSKUNumber, SystemStartupDelay, SystemStartupOptions, SystemStartupSetting, SystemType, ThermalState, TotalPhysicalMemory, UserName, WakeUpType, Workgroup |
+    Out-File -FilePath $infofolder\motherboard.txt
+    $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem | 
+    Select-Object -Property 'BootDevice', 'BuildNumber', 'BuildType', 'Caption', 'CodeSet', 'CountryCode', 'CreationClassName', 'CSCreationClassName', 'CSDVersion', 'CSName', 'CurrentTimeZone', 'DataExecutionPrevention_32BitApplications', 'DataExecutionPrevention_Available', 'DataExecutionPrevention_Drivers', 'DataExecutionPrevention_SupportPolicy', 'Debug', 'Description', 'Distributed', 'EncryptionLevel', 'ForegroundApplicationBoost', 'FreePhysicalMemory', 'FreeSpaceInPagingFiles', 'FreeVirtualMemory', 'InstallDate', 'LastBootUpTime', 'LocalDateTime', 'Locale', 'Manufacturer', 'MaxNumberOfProcesses', 'MaxProcessMemorySize', 'MUILanguages', 'Name', 'NumberOfLicensedUsers', 'NumberOfProcesses', 'NumberOfUsers', 'OperatingSystemSKU', 'Organization', 'OSArchitecture', 'OSLanguage', 'OSProductSuite', 'OSType', 'OtherTypeDescription', 'PAEEnabled', 'PlusProductID', 'PlusVersionNumber', 'PortableOperatingSystem', 'Primary', 'ProductType', 'RegisteredUser', 'SerialNumber', 'ServicePackMajorVersion', 'ServicePackMinorVersion', 'SizeStoredInPagingFiles', 'Status', 'SuiteMask', 'SystemDevice', 'SystemDirectory', 'SystemDrive', 'TotalSwapSpaceSize', 'TotalVirtualMemorySize', 'TotalVisibleMemorySize', 'Version', 'WindowsDirectory' | 
+    Out-File -FilePath $infofolder\operatingSystem.txt
+    $pnpDevices = Get-WmiObject Win32_PNPEntity | Out-File -FilePath $infofolder\pnpDevices.txt
+    $usbControllers = Get-WmiObject Win32_USBHub | Out-File -FilePath $infofolder\usbControllers.txt
+    $USBDeviceTree1 = Get-CimInstance -ClassName Win32_USBHub -Property * | Out-File -FilePath $infofolder\USBDeviceTree1.txt
+    $USBDeviceTree2 = Get-CimInstance -ClassName Win32_USBControllerDevice | Out-File -FilePath $infofolder\USBDeviceTree2.txt
+    $Monitor1 = Get-PnpDevice | Where-Object Class -Match "Monitor"  | Select-Object InstanceID | Out-File -FilePath $infofolder\Monitor1.txt
+    $Monitor2 = Get-WmiObject WmiMonitorID -Namespace root\wmi | Out-File -FilePath $infofolder\Monitor2.txt
+    $Display = Get-WmiObject -Namespace root\wmi -Class WmiMonitorBasicDisplayParams | select @{ N = "Computer"; E = { $_.__SERVER } }, InstanceName, @{N = "Horizonal"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) * 10, 2) } }, @{N = "Vertical"; E = { [System.Math]::Round(($_.MaxVerticalImageSize) * 10, 2) } }, @{N = "Size"; E = { [System.Math]::Round(([System.Math]::Sqrt([System.Math]::Pow($_.MaxHorizontalImageSize, 2) + [System.Math]::Pow($_.MaxVerticalImageSize, 2))), 2) } }, @{N = "Ratio"; E = { [System.Math]::Round(($_.MaxHorizontalImageSize) / ($_.MaxVerticalImageSize), 2) } } | Out-File -FilePath $infofolder\Display.txt
+    $PersistedData1 = Get-ChildItem -Path Registry::HKEY_CURRENT_USER\SOFTWARE\Tobii -Recurse | Out-File -FilePath $infofolder\PersistedData1.txt
+    $PersistedData2 = Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii -Recurse | Out-File -FilePath $infofolder\PersistedData2.txt
+
+
+    Get-Service -Name '*TobiiIS*' | Stop-Service -Force -passthru -ErrorAction ignore
+    $Path = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    Set-Location $Path
+
+    $info = .\CastorUsbCli.exe "--info"
+    $status = .\CastorUsbCli.exe "--status"
+    $unitinfo = .\CastorUsbCli.exe "--unit-info"
+    $flashinfo = .\CastorUsbCli.exe "--flash-info"
+    $list = .\CastorUsbCli.exe "--list"
+    $properties = .\CastorUsbCli.exe "--properties"
+    $platform = .\CastorUsbCli.exe "--platform"
+    $reset = .\CastorUsbCli.exe "--reset"
+    $execute = .\CastorUsbCli.exe "--execute"
+    $readbootheader = .\CastorUsbCli.exe "--read-boot-header"
+    $readappheader = .\CastorUsbCli.exe "--read-app-header"
+    $showscreenplane = .\CastorUsbCli.exe "--show-screen-plane"
+
+    Get-Service -Name '*TobiiIS*' | Stop-Service -Force -passthru -ErrorAction ignore
+
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $info
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $status
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $unitinfo
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $flashinfo
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $list
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $properties
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $platform
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $reset
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $execute
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $readbootheader
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $readappheader
+    Add-Content -path "$infofolder\ETInfo.txt" -Value $showscreenplane
+
+    Get-Service -Name '*TobiiIS*' | start-Service  -passthru -ErrorAction ignore
+    $outputbox.appendtext("`r`nDone!")
+}
 
 #B18
 Function InstallPDK {
@@ -1631,7 +1851,7 @@ Function InstallPDK {
         sc.exe create $serviceName binpath="C:\Windows\System32\DriverStore\FileRepository\is5gibbongaze.inf_amd64_07ff964b2ca8d0e4\platform_runtime_IS5GIBBONGAZE_service.exe" DisplayName= "Tobii Runtime Service" start= auto
         Start-Service -Name $serviceName -ErrorAction stop
     }
-    $outputbox.appendtext("Done!")
+    $outputbox.appendtext("`r`nDone!")
 }
 
 #B19 Stops all currently active tobii processes
@@ -1782,7 +2002,7 @@ Function FWUpgrade {
     }
 
     else {
-        $outputbox.appendtext("No Eye Tracker Connected`r`n")
+        $outputbox.appendtext("No Eye Tracker Connected or FW upgrade not supported`r`n")
     }
     if ($ETInfo -match "PCE1M") {
         #PCEye Mini: tobii-ttp://PCE1M-010106010685
@@ -2243,6 +2463,15 @@ $Button16.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontSty
 $form.Controls.add($Button16)
 $Button16.Add_Click{ ModelCheck }
 
+#B17 Button17 "HWInfo"
+$Button17 = New-Object System.Windows.Forms.Button
+$Button17.Location = New-Object System.Drawing.Size(410, 480)
+$Button17.Size = New-Object System.Drawing.Size(90, 30)
+$Button17.Text = "HWInfo"
+$Button17.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
+$form.Controls.add($Button17)
+$Button17.Add_Click{ HWInfo }
+
 #B18 Button18 "Install PDK"
 $Button18 = New-Object System.Windows.Forms.Button
 $Button18.Location = New-Object System.Drawing.Size(500, 0)
@@ -2399,6 +2628,6 @@ $Button34.Add_Click{ InternalSE }
 
 
 #Form name + activate form.
-$Form.Text = "Support Tool 1.6.2"
+$Form.Text = "Support Tool 1.6.3"
 $Form.Add_Shown( { $Form.Activate() })
 $Form.ShowDialog()
