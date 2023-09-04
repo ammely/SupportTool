@@ -1,4 +1,4 @@
-﻿#v1.4 DummyFix
+﻿#v1.5 DummyFix
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
@@ -83,15 +83,17 @@ Function UninstallPCEye5Bundle {
         Return
     }
 	
-	$Outputbox.Appendtext("Backup Calibration profiles. To restore profiles, go to %temp% and double click on Eula & EyeXConfig`r`n" )
-    $RegPath1 = 'HKEY_USERS\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
-    $RegPath2 = 'HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
+   	$Outputbox.Appendtext("Backup Calibration profiles. To restore profiles, go to %temp% and double click on Eula & EyeXConfig`r`n" )
+    New-PSDrive -PSProvider Registry -Name HKU -Root HKEY_USERS
+    $RegPath1 = 'HKU:\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
+    $RegPath2 = 'HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
     if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath1 "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
+    	Invoke-Command  {reg export 'HKU\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA' "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
     }
-    if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath2 "$ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg" }
+    if (Test-Path -Path $RegPath2) {
+    	Invoke-Command  {reg export 'HKLM\SOFTWARE\WOW6432Node\Tobii\EyeXConfig' $ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg }
     }
+    Remove-PSDrive -name HKU
 
 	$GetProcess = stop-process -Name "*TobiiDynavox*"
     $Outputbox.appendtext("Stopping $GetProcess `r`n" )
@@ -179,14 +181,16 @@ Function UninstallTobiiDeviceDriversForWindows {
     $Outputbox.Appendtext( "Please wait.`r`n" )
 
    	$Outputbox.Appendtext("Backup Calibration profiles. To restore profiles, go to %temp% and double click on Eula & EyeXConfig`r`n" )
-    $RegPath1 = 'HKEY_USERS\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
-    $RegPath2 = 'HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
+    New-PSDrive -PSProvider Registry -Name HKU -Root HKEY_USERS
+    $RegPath1 = 'HKU:\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
+    $RegPath2 = 'HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
     if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath1 "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
+    	Invoke-Command  {reg export 'HKU\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA' "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
     }
-    if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath2 "$ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg" }
+    if (Test-Path -Path $RegPath2) {
+    	Invoke-Command  {reg export 'HKLM\SOFTWARE\WOW6432Node\Tobii\EyeXConfig' $ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg }
     }
+    Remove-PSDrive -name HKU
 
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     Set-Location $fpath
@@ -268,15 +272,18 @@ Function UninstallWCGP {
         $Outputbox.Appendtext( "Action canceled: Copy Licenses`r`n" )
     }
 
-	$Outputbox.Appendtext("Backup Calibration profiles. To restore profiles, go to %temp% and double click on Eula & EyeXConfig`r`n" )
-    $RegPath1 = 'HKEY_USERS\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
-    $RegPath2 = 'HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
+   	$Outputbox.Appendtext("Backup Calibration profiles. To restore profiles, go to %temp% and double click on Eula & EyeXConfig`r`n" )
+    New-PSDrive -PSProvider Registry -Name HKU -Root HKEY_USERS
+    $RegPath1 = 'HKU:\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA'
+    $RegPath2 = 'HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig'
     if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath1 "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
+    	Invoke-Command  {reg export 'HKU\S-1-5-21-2271707575-1334560000-3059665169-12978\SOFTWARE\Tobii\EULA' "$ENV:USERPROFILE\AppData\Local\Temp\EULA.reg" }
     }
-    if (Test-Path -Path $RegPath1) {
-    	Invoke-Command  {reg export $RegPath2 "$ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg" }
+    if (Test-Path -Path $RegPath2) {
+    	Invoke-Command  {reg export 'HKLM\SOFTWARE\WOW6432Node\Tobii\EyeXConfig' $ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg }
     }
+    Remove-PSDrive -name HKU
+
     $Outputbox.Appendtext( "Please wait.`r`n" )
     $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
     Get-ItemProperty | Where-Object { ($_.Displayname -Match "Windows Control") -or
@@ -1612,6 +1619,6 @@ $form.Controls.add($Button24)
 $Button24.Add_Click{ BatteryLog }
 
 #Form name + activate form.
-$Form.Text = "Support Tool 1.4"
+$Form.Text = "Support Tool 1.5"
 $Form.Add_Shown( { $Form.Activate() })
 $Form.ShowDialog()
