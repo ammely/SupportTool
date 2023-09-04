@@ -2959,128 +2959,165 @@ Function Deployment {
 
 #B16
 Function LogCollector {
-    #File version 
+    # File version 
     $LogCollectorTool = "LogCollectorTool_V0.9"
-
-    #Forces powershell to run as an admin
-    if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
-    { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
-    $PSScriptRoot
-
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "$LogCollectorTool"
-    $form.Size = New-Object System.Drawing.Size(420, 320)
-    $form.StartPosition = 'CenterScreen'
-
-    $okButton = New-Object System.Windows.Forms.Button
-    $okButton.Location = New-Object System.Drawing.Point(135, 250)
-    $okButton.Size = New-Object System.Drawing.Size(75, 25)
-    $okButton.Text = 'OK'
-    $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    $form.AcceptButton = $okButton
-    $form.Controls.Add($okButton)
-
-    $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Location = New-Object System.Drawing.Point(210, 250)
-    $cancelButton.Size = New-Object System.Drawing.Size(75, 25)
-    $cancelButton.Text = 'Cancel'
-    $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $form.CancelButton = $cancelButton
-    $form.Controls.Add($cancelButton)
-
-    $label = New-Object System.Windows.Forms.Label
-    $label.Location = New-Object System.Drawing.Point(10, 10)
-    $label.Size = New-Object System.Drawing.Size(75, 20)
-    $label.Text = "Logs location:"
-    $form.Controls.Add($label)
-
-    $textBox = New-Object System.Windows.Forms.TextBox
-    $textBox.Location = New-Object System.Drawing.Point(85, 10)
-    $textBox.Size = New-Object System.Drawing.Size(270, 20)
-    $form.Controls.Add($textBox)
-
-    $label2 = New-Object System.Windows.Forms.Label
-    $label2.Location = New-Object System.Drawing.Point(10, 30)
-    $label2.Size = New-Object System.Drawing.Size(390, 20)
-    $label2.Text = "                        ex. C:\Users\TobiiDynavox_SysInfo_xxxx"
-    $form.Controls.Add($label2)
-
-    $label3 = New-Object System.Windows.Forms.Label
-    $label3.Location = New-Object System.Drawing.Point(10, 50)
-    $label3.Size = New-Object System.Drawing.Size(240, 30)
-    $label3.Text = "A. Choose one of following (only the number):"
-    $form.Controls.Add($label3)
-
-    $textBox2 = New-Object System.Windows.Forms.TextBox
-    $textBox2.Location = New-Object System.Drawing.Point(250, 50)
-    $textBox2.Size = New-Object System.Drawing.Size(60, 20)
-    $form.Controls.Add($textBox2)
-
-    $label3 = New-Object System.Windows.Forms.Label
-    $label3.Location = New-Object System.Drawing.Point(10, 80)
-    $label3.Size = New-Object System.Drawing.Size(350, 50)
-    $label3.Text = "1- Latest logs                                 2- Eye Assist logs`n3- Driver software logs                  4- Driver installer logs`n5- Any other file or folder               6- Convert BW logs to Windows`n7- Timing Issue EventLog Finder  8- RI Sample results"
-    $form.Controls.Add($label3)
-
-    $label4 = New-Object System.Windows.Forms.Label
-    $label4.Location = New-Object System.Drawing.Point(10, 140)
-    $label4.Size = New-Object System.Drawing.Size(400, 20)
-    $label4.Text = "B. Logs between two timestamps: format should be as: yyyy-mm-dd hh:mm"
-    $form.Controls.Add($label4)
-
-    $textBox3 = New-Object System.Windows.Forms.TextBox
-    $textBox3.Location = New-Object System.Drawing.Point(10, 160)
-    $textBox3.Size = New-Object System.Drawing.Size(100, 20)
-    $form.Controls.Add($textBox3)
-
-    $textBox4 = New-Object System.Windows.Forms.TextBox
-    $textBox4.Location = New-Object System.Drawing.Point(180, 160)
-    $textBox4.Size = New-Object System.Drawing.Size(100, 20)
-    $form.Controls.Add($textBox4)
-
-    $form.Topmost = $true
-
-    $form.Add_Shown( { $textBox.Select() })
-    $result = $form.ShowDialog()
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
 
-    if ($x -and $x2 -and $x3) {
-        Clear-Variable x3
-        Clear-Variable x2
-        Clear-Variable x
+    # Check if PowerShell is running as an admin
+    if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { 
+        Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit 
+    }
+
+    # Load Windows Forms assembly
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    # Create form and controls
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = $LogCollectorTool
+    $form.Size = New-Object System.Drawing.Size(600, 500)
+    $form.StartPosition = 'CenterScreen'
+    $form.Topmost = $true
+
+    $labelLogsPath = New-Object System.Windows.Forms.Label
+    $labelLogsPath.Location = New-Object System.Drawing.Point(10, 15)
+    $labelLogsPath.Size = New-Object System.Drawing.Size(120, 20)
+    $labelLogsPath.Text = "Logs path:"
+    $form.Controls.Add($labelLogsPath)
+
+    $textBoxLogsPath = New-Object System.Windows.Forms.TextBox
+    $textBoxLogsPath.Location = New-Object System.Drawing.Point(125, 20)
+    $textBoxLogsPath.Size = New-Object System.Drawing.Size(440, 20)
+    $form.Controls.Add($textBoxLogsPath)
+
+    $buttonOk = New-Object System.Windows.Forms.Button
+    $buttonOk.Location = New-Object System.Drawing.Point(225, 410)
+    $buttonOk.Size = New-Object System.Drawing.Size(75, 25)
+    $buttonOk.Text = 'OK'
+    $buttonOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.AcceptButton = $buttonOk
+    $form.Controls.Add($buttonOk)
+
+    $buttonCancel = New-Object System.Windows.Forms.Button
+    $buttonCancel.Location = New-Object System.Drawing.Point(300, 410)
+    $buttonCancel.Size = New-Object System.Drawing.Size(75, 25)
+    $buttonCancel.Text = 'Cancel'
+    $buttonCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $form.AcceptButton = $buttonCancel
+    $form.Controls.Add($buttonCancel) 
+
+    # Create an array of radio button labels
+    $labels = @("Latest logs", "Eye Assist logs", "Driver software logs", "Driver installer logs", "Other Logs", "Convert BW logs", "Eye Assist logs", "Timing Issue EventLog", "RI Sample results")
+
+    # Define the starting position of the first radio button
+    $x = 10
+    $y = 55
+
+    # Loop through the array and create a radio button for each label
+    for ($i = 0; $i -lt $labels.Length; $i++) {
+        # Create a new radio button and set its properties
+        $radio = New-Object System.Windows.Forms.RadioButton
+        $radio.Location = New-Object System.Drawing.Point($x, $y)
+        $radio.Size = New-Object System.Drawing.Size(250, 30)
+        $radio.Text = $labels[$i]
+        $form.Controls.Add($radio)
+    
+        # If we've added two radio buttons on this row, move to the next row
+        if (($i + 1) % 2 -eq 0) {
+            $x = 10
+            $y += 35
+        }
+        else {
+            $x += 260
+        }
+    }
+
+
+    $radio9 = New-Object System.Windows.Forms.RadioButton
+    $radio9.Location = New-Object System.Drawing.Point(10, 230)
+    $radio9.Size = New-Object System.Drawing.Size(450, 20)
+    $radio9.Text = "Timestamps: format should be as: yyyy-mm-dd hh:mm"
+    $form.Controls.Add($radio9)
+
+    $radio9.Add_CheckedChanged({
+            if ($radio9.Checked) {
+                $textBox3.Visible = $true
+                $textBox4.Visible = $true
+            }
+            else {
+                $textBox3.Visible = $false
+                $textBox4.Visible = $false
+            }
+        })
+    $textBox3 = New-Object System.Windows.Forms.TextBox
+    $textBox3.Location = New-Object System.Drawing.Point(10, 255)
+    $textBox3.Size = New-Object System.Drawing.Size(180, 25)
+    $form.Controls.Add($textBox3)
+    $textBox3.Visible = $false
+
+    $textBox4 = New-Object System.Windows.Forms.TextBox
+    $textBox4.Location = New-Object System.Drawing.Point(210, 255)
+    $textBox4.Size = New-Object System.Drawing.Size(180, 25)
+    $form.Controls.Add($textBox4)
+    $textBox4.Visible = $false
+
+    $result = $form.ShowDialog()
+
+    $form.Add_Shown( { $textBoxLogsPath.Select() })
+
+
+    if ($x1 -or $x2 -or $x3) {
+        $x1 = $x2 = $x3 = $null
     }
 
     Function LatestErrorLogs {
-        if ($x) {
-            $LogPath = $x
+        #$LogPath = if ($x1) { $x1} else { "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii" }
+        #$fpath = Get-ChildItem -Path $PSScriptRoot -Filter "2.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+        #$ErrorPath = if (!$x1 -and $fpath) {"$fpath\ErrorLogs"} elseif ($x1 -and $fpath){"$LogPath\ErrorLogs"}
+
+        if ($x1) {
+            $LogPath = $x1
             $ErrorPath = "$LogPath\ErrorLogs"
         }
         else {
             $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             $ErrorPath = "$fpath\ErrorLogs"
-        }    
+        }
+       
+        $fileNames = @(
+            #From Appdata
+            'Browse.log', ############## Browse.20230412.log Todo
+            'Browse.EyeTracking.log',
+            'Browse.Launcher.log',
+            'EyeAssistEngine.log',
+            'EyeTrackingSettings.log',
+            'RegionInteraction.log',
+            'Phone.log',
+            'Phone.Launcher.log',
+            'Switcher.log',
+            'Talk.log',
+            'Talk.Launcher.log',
+
+            #From Programdata
+            'Browse.Updater.log',
+            'ComputerControl.Updater.log',
+            'ComputerControl.Launcher.log',
+            'Updater.log', #for both phone and talk 
+            'Switcher.Updater.log',
+            'ServiceLog.txt',
+            'pr_log0.txt',
+
+            #From Localappdata
+            'ServerLog.txt',
+            'InteractionLog.txt',
+            'ConfigurationLog.txt'
+        )
+
         $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
-                                                    ($_.Name -match 'ComputerControl.log') -or
-                                                    ($_.Name -match 'ComputerControl.Updater.log') -or
-                                                    ($_.Name -match 'ComputerControl.Launcher.log') -or
-                                                    ($_.Name -match 'EyeAssistEngine.log') -or
-                                                    ($_.Name -match 'EyeTrackingSettings.log') -or
-                                                    ($_.Name -match 'RegionInteraction.log') -or
-                                                    ($_.Name -match 'Switcher.log') -or
-                                                    ($_.Name -match 'Switcher.Updater.log') -or
-                                                    ($_.Name -match 'ServerLog.txt') -or
-                                                    ($_.Name -match 'InteractionLog.txt') -or
-                                                    ($_.Name -match 'ConfigurationLog.txt') -or
-                                                    ($_.Name -match 'ServiceLog.txt') -or
-                                                    ($_.Name -match 'pr_log0.txt') -or
-                                                    ($_.Name -match 'Updater.log') -or
-                                                    ($_.Name -match 'Talk.Launcher.log')
-        } | Select-Object -expand Fullname
- 
-   
+            $_.Name -match ($fileNames -join '|') -and $_.Name -notmatch '\.\d+'
+        } | Select-Object -ExpandProperty FullName
+
         #Creating folder
         if (!(Test-Path "$ErrorPath")) {
             Write-Host "Creating ErrorLogs folder in $ErrorPath.."
@@ -3093,6 +3130,7 @@ Function LogCollector {
         else {
             Clear-Content -Path "$ErrorPath\LatestErrors.txt"
         }
+
 
         foreach ($file in $files) {
             if (![System.IO.File]::Exists($file)) {
@@ -3115,8 +3153,8 @@ Function LogCollector {
     }
 
     Function EALogs {
-        if ($x) {
-            $LogPath = $x
+        if ($x1) {
+            $LogPath = $x1
             $ErrorPath = "$LogPath\ErrorLogs"
         }
         else {
@@ -3124,7 +3162,6 @@ Function LogCollector {
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             $ErrorPath = "$fpath\ErrorLogs"
         }
- 
         $EALogs = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
                                                     ($_.Name -match "EyeAssistEngine.*.log") -or
                                                     ($_.Name -match "EyeTrackingSettings.*.log") -or
@@ -3160,8 +3197,8 @@ Function LogCollector {
     }
 
     Function TTechLogs {
-        if ($x) {
-            $LogPath = $x
+        if ($x1) {
+            $LogPath = $x1
             $ErrorPath = "$LogPath\ErrorLogs"
         }
         else {
@@ -3202,12 +3239,12 @@ Function LogCollector {
     }
 
     Function InstallerLogs {
-        if ($x) {
-            $InstallerLogs = "$x\TOBII_INSTALLER_LOGS\TEMP"
-            $ErrorPath = "$x\ErrorLogs"
+        if ($x1) {
+            $InstallerLogs = "$x1\TOBII_INSTALLER_LOGS\TEMP", "$x1\TobiiDiagnostics\INSTALLER"
+            $ErrorPath = "$x1\ErrorLogs"
         }
         else {
-            $InstallerLogs = "$ENV:USERPROFILE\AppData\Local\Temp"
+            $InstallerLogs = "$ENV:USERPROFILE\AppData\Local\Temp", "$ENV:USERPROFILE\AppData\Local\Tobii\Installer"
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             $ErrorPath = "$fpath\ErrorLogs"
         }
@@ -3242,7 +3279,7 @@ Function LogCollector {
     }
 
     Function OtherLogs {
-        $LogPath = $x
+        $LogPath = $x1
         #if given path is a folder:
         if ((Get-Item $LogPath) -is [System.IO.DirectoryInfo]) {
             #Creating folder
@@ -3313,7 +3350,7 @@ Function LogCollector {
     #C:\Users\aes\Desktop\SupportTools\accessory.tdl
     Function BWLogConvertor {
         Write-Host "Running BW log convertor `r`n"
-        $LogPath = $x
+        $LogPath = $x1
         if ($LogPath -match "accessory.tdl") { 
             $newLogPath = $LogPath -replace "accessory.tdl", ""
         }
@@ -3344,7 +3381,7 @@ Function LogCollector {
     Function TimingIssueEventLogFinder {
 
         Write-Host "Running Timing Issue EventLog Finder `r`n"
-        $LogPath = $x
+        $LogPath = $x1
 
         $Path = Get-ChildItem -Path $LogPath -Filter "*.evtx" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
    
@@ -3366,7 +3403,7 @@ Function LogCollector {
 
     Function RISample {
         Write-Host "Running RI Sample results `r`n"
-        $LogPath = $x
+        $LogPath = $x1
         #$path = "C:\Users\aes\Desktop\tobii"
         $content = Get-ChildItem -Path $LogPath -Recurse | Where-Object { $_.Name -match 'Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample' } | Select-Object -expand Fullname
 
@@ -3404,20 +3441,19 @@ Function LogCollector {
     }
 
     Function TimeStampBetween {
-        if ($x) {
-            $LogPath = $x
+        if ($x1) {
+            $LogPath = $x1
             $ErrorPath = "$LogPath\ErrorLogs"
         }
         else {
             $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             $ErrorPath = "$fpath\ErrorLogs"
-
         }
 
         #$date = "2020-11-22"
-        $start = Get-Date -format "yyyy-MM-dd hh:mm:ss" "$x3"
-        $end = Get-Date -format "yyyy-MM-dd hh:mm:ss" "$x4"
+        $start = Get-Date -format "yyyy-MM-dd HH:mm:ss" "$x3"
+        $end = Get-Date -format "yyyy-MM-dd HH:mm:ss" "$x4"
   
         write-host "start: $start"
         write-host "end: $end"
@@ -3483,48 +3519,66 @@ Function LogCollector {
         }
         [System.Windows.MessageBox]::Show('Done')
     }
- 
+
+
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-        $x = $textBox.Text
-        $x2 = $textBox2.Text
+    
+        $x1 = $textBoxLogsPath.Text
         $x3 = $textBox3.Text
         $x4 = $textBox4.Text
-        $x
-        $x2
+        $x1
         $x3
         $x4
 
-        if ($x2 -match "1") { 
-            LatestErrorLogs
-        }
-        elseif ($x2 -match "2") { 
-            EALogs
-        }
-        elseif ($x2 -match "3") { 
-            TTechLogs
-        }
-        elseif ($x2 -match "4") { 
-            InstallerLogs
-        }
-        elseif ($x2 -match "5") {
-            OtherLogs
-        }
-        elseif ($x2 -match "6") {
-            BWLogConvertor
-        }
-        elseif ($x2 -match "7") {
-            TimingIssueEventLogFinder
-        }    
-        elseif ($x2 -match "8") {
-            RISample
-        }
-        elseif (!($x2)) {
-            if ("$x3" -and "$x4") {
-                TimeStampBetween
+
+        # Event handler for radio buttons
+        foreach ($control in $form.Controls) {
+            if ($control.GetType().Name -eq "RadioButton") {
+                if ($control.Checked) {
+                    switch ($control.Text) {
+                        "Latest logs" { 
+                            Write-Host "Latest logs option selected"
+                            LatestErrorLogs
+                        }
+                        "Eye Assist logs" {
+                            Write-Host "Eye Assist logs option selected"
+                            EALogs
+                        }
+                        "Driver software logs" {
+                            Write-Host "Driver software logs option selected"
+                            TTechLogs
+                        }
+                        "Driver installer logs" {
+                            Write-Host "Driver installer logs option selected"
+                            InstallerLogs
+                        }
+                        "Other Logs" {
+                            Write-Host "Other Logs option selected"
+                            OtherLogs
+                        }
+                        "Convert BW logs" {
+                            Write-Host "Convert BW logs option selected"
+                            BWLogConvertor
+                        }
+                        "Timing Issue EventLog" {
+                            Write-Host "Timing Issue EventLog option selected"
+                            TimingIssueEventLogFinder
+                        }
+                        "RI Sample results" {
+                            Write-Host "RI Sample results option selected"
+                            RISample
+                        }
+                    }
+                    break
+                } 
             }
         }
-
+        if ($radio9.Checked) {
+            Write-Host "Timestamps option selected"
+            TimeStampBetween
+        }
     }
+
 }
 
 #B17
