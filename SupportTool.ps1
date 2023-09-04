@@ -1,6 +1,6 @@
 ﻿#Arthur Ammar Elyas, ammar.elyas@tobiidynavox.com
 #File version 
-$fileversion = "SupportTool v1.6.112.ps1"
+$fileversion = "SupportTool v1.6.112_1.ps1"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -2879,125 +2879,205 @@ Function Diagnostic {
 
 #B15 Deploy from v0.31
 Function Deployment {
-    #USB namings:
-    #"Indi_AD"             "Indi_AB"             "Indi_A_XX"
-    #"Indi_BD"             "Indi_BB"             "Indi_B_XX"
-    #"Indi_7_AD"           "Indi_7_AB"           "Indi_7_A_XX"
-    #"Indi_7_BD"           "Indi_7_BB"           "Indi_7_B_XX"
-    #"I-110D"              "I-110B"              "I-110_XX"
-    #"I-Series+D"          "I-SeriesB"           "I-Series+_XX"
-    #"Surface_SP6D"        "Surface_SP6"         "Surface_Pro_SP6_XX"
-    #"Surface_SP7D"        "Surface_SP7"         "Surface_Pro_SP7_XX"
-    #"ISeries_IOTD"        "ISeries_IOT"         "ISeries_IOT"
-    #"ISeriesD"            "ISeriesB"            "ISeries_XX"
-    #"I-110-8W10D"         "I-110-8W10B"         "I-110-850_W10_REPAIR_XX"
-    #"I-110-8W11D"         "I-110-8W11B"         "I-110-850_W11_XX"
-    #"ISeries_MPD"         "ISeries_MPB"         ""
+   #"Indi_AD"             "Indi_AB"             "Indi_A_XX"
+#"Indi_BD"             "Indi_BB"             "Indi_B_XX"
+#"Indi_7_AD"           "Indi_7_AB"           "Indi_7_A_XX"
+#"Indi_7_BD"           "Indi_7_BB"           "Indi_7_B_XX"
 
-    $ReferenceD = @("Indi_A", "Indi_B", "Indi_7_A", "Indi_7_B", "I-110", "I-Series+", "Surface_Pro_SP6", 
-        "ISeries", "Surface_Pro_SP7", "I-110-850_W11" , "I-110-850_W10", "ISeries_IOT",
-        "ISeries_MP")
+#"I-110D"              "I-110B"              "I-110_XX"
+#"I-110-8W10D"         "I-110-8W10B"         "I-110-850_W10_REPAIR_XX"
+#"I-110-8W11D"         "I-110-8W11B"         "I-110-850_W11_XX"
 
-    $availableUSBs = (@(Get-Volume | Where-Object DriveType -eq Removable | Where-Object FileSystemType -eq NTFS |  Select-Object FileSystemLabel).FileSystemLabel ) -replace ".$"
-    $outputbox.appendtext("Available USB drives: $availableUSBs`r`n")
+#"Surface_SP6D"        "Surface_SP6"         "Surface_Pro_SP6_XX"
+#"Surface_SP7D"        "Surface_SP7"         "Surface_Pro_SP7_XX"
 
-    foreach ($availableUSB in $availableUSBs) {
-        if ( $availableUSB -match "Surface_SP6") { $newReferenceDs = "Surface_Pro_SP6" }
-        elseif ( $availableUSB -match "Surface_SP7") { $newReferenceDs = "Surface_Pro_SP7" }
-        elseif ( $availableUSB -match "I-110-8W11") { $newReferenceDs = "I-110-850_W11" }
-        elseif ( $availableUSB -match "I-110-8W10") { $newReferenceDs = "I-110-850_W10" }
-        else { $newReferenceDs = (Compare-Object -DifferenceObject $ReferenceD -ReferenceObject $availableUSB -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject }
+#"I-Series+D"          "I-SeriesB"           "I-Series+_XX"
+#"ISeries_IOTD"        "ISeries_IOT"         "ISeries_IOT"
+#"ISeriesD"            "ISeriesB"            "ISeries_XX"
+#"ISeries_MPD"         "ISeries_MPB"         ""
 
-        $outputbox.appendtext("`r`nSelecting: $newReferenceDs`r`n")
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-        foreach ($newComparesUSBs in $newReferenceDs) {
+# Build Form
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "Deploy"
+$Form.Size = New-Object System.Drawing.Size(500, 500)
+$Form.StartPosition = "CenterScreen"
 
-            $DeployName = "$availableUSB" + "D"
+Add-Type -AssemblyName System.Windows.Forms    
+Add-Type -AssemblyName System.Drawing
 
-            if ("$newComparesUSBs" -eq "I-Series+") {
-                $BootName = $newComparesUSBs.Replace( "+", "") + "B"
-            }
-            elseif ("$newComparesUSBs" -eq "Surface_Pro_SP6") {
-                $BootName = $newComparesUSBs.Replace("_Pro", "")
-            }
-            elseif ("$newComparesUSBs" -eq "Surface_Pro_SP7") {
-                $BootName = $newComparesUSBs.Replace("_Pro", "")
-            }
-            elseif ("$newComparesUSBs" -eq "I-110-850_W11") {
-                $BootName = $newComparesUSBs.Replace("50_", "") + "B"
-            }
-            elseif ("$newComparesUSBs" -eq "I-110-850_W10") {
-                $BootName = $newComparesUSBs.Replace("50_", "") + "B"
-            }
-            elseif ("$newComparesUSBs" -eq "ISeries_IOT") {
-                $BootName = $newComparesUSBs.Replace("B", "")
-            }
-            else {
-                $BootName = "$newComparesUSBs" + "B"
-            }
-            $outputbox.appendtext("Setting deploy name to $DeployName and $BootName`r`n")
-            $paths = "$env:USERPROFILE\Downloads"#, "D:\"
+# Build Form
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "Deploy"
+$Form.Size = New-Object System.Drawing.Size(500, 500)
+$Form.StartPosition = "CenterScreen"
+#$Form.Topmost = $True
 
-            $CheckDownload = (Get-ChildItem -Path $paths | Where-Object { $_.Name -match "$newComparesUSBs" -and $_.Name -match ".7z" }).Name 
+# Add Button1
+$Button1 = New-Object System.Windows.Forms.Button
+$Button1.Location = New-Object System.Drawing.Size(20, 30)
+$Button1.Size = New-Object System.Drawing.Size(220, 50)
+$Button1.Text = "ISeries_IOT"
+$Form.Controls.Add($Button1)
 
-            if ($CheckDownload -gt 1) {
-                foreach ($CheckDownloads in $CheckDownload) {
-                    #for I-SeriesIOT
-                    if (($CheckDownloads -match "IOT") -and ($newComparesUSBs -eq "ISeries_IOT")) {
-                        $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -eq "$CheckDownloads" }).Name ) -replace ".7z", ""
-                        $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -eq "$CheckDownloads" } | Select-Object -expand Fullname | Split-Path
-                    }
-                    elseif ($CheckDownloads -match "\+") {
-                        $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -eq "$CheckDownloads" }).Name ) -replace ".7z", ""
-                        $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -eq "$CheckDownloads" } | Select-Object -expand Fullname | Split-Path
-                    }
-                    elseif (($CheckDownloads -notmatch "IOT") -and ($newComparesUSBs -eq "ISeries")) {
-                        $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -eq "$CheckDownloads" }).Name ) -replace ".7z", ""
-                        $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -eq "$CheckDownloads" } | Select-Object -expand Fullname | Split-Path
-                    }
+# Add Button2
+$Button2 = New-Object System.Windows.Forms.Button
+$Button2.Location = New-Object System.Drawing.Size(250, 30)
+$Button2.Size = New-Object System.Drawing.Size(220, 50)
+$Button2.Text = "I-110-850_W11"
+$Form.Controls.Add($Button2)
 
-                }
-            }
-            else {
+# Add Button3
+$Button3 = New-Object System.Windows.Forms.Button
+$Button3.Location = New-Object System.Drawing.Size(20, 80)
+$Button3.Size = New-Object System.Drawing.Size(220, 50)
+$Button3.Text = "Surface_Pro_SP7"
+$Form.Controls.Add($Button3) 
 
-                $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -match "$newComparesUSBs" }).Name ) -replace ".7z", ""
-                $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -match "$newComparesUSBs" } | Select-Object -expand Fullname | Split-Path
-            }
+# Add Button4
+$Button4 = New-Object System.Windows.Forms.Button
+$Button4.Location = New-Object System.Drawing.Size(20, 130)
+$Button4.Size = New-Object System.Drawing.Size(220, 50)
+$Button4.Text = "Indi_A"
+$Form.Controls.Add($Button4)
 
-            Set-Location  "C:\Program Files\7-Zip"
-            if ($Download) {
-                $outputbox.appendtext("Found deploy: $Download`r`n")
+# Add Button5
+$Button5 = New-Object System.Windows.Forms.Button
+$Button5.Location = New-Object System.Drawing.Size(250, 130)
+$Button5.Size = New-Object System.Drawing.Size(220, 50)
+$Button5.Text = "Indi_B"
+$Form.Controls.Add($Button5) 
 
-                # clear content in USB
-                $outputbox.appendtext("Formatting both $DeployName and $BootName`r`n")
-                $Test1 = Format-Volume -FriendlyName $DeployName -FileSystem NTFS -NewFileSystemLabel $DeployName
-                $Test2 = Format-Volume -FriendlyName $BootName -FileSystem FAT32 -NewFileSystemLabel $BootName
+# Add Button6
+$Button6 = New-Object System.Windows.Forms.Button
+$Button6.Location = New-Object System.Drawing.Size(20, 180)
+$Button6.Size = New-Object System.Drawing.Size(220, 50)
+$Button6.Text = "Indi_7_A"
+$Form.Controls.Add($Button6)
 
-                # Find and select driver for USB
-                $getDepLetter = (Get-Volume | Where-Object { ($_.FileSystemLabel -eq "$DeployName") }).DriveLetter
-                $getBootLetter = (Get-Volume | Where-Object { ($_.FileSystemLabel -eq "$BootName") }).DriveLetter
-                $outputbox.appendtext("Found following driver letters: $getDepLetter & $getBootLetter`r`n")
+# Add Button7
+$Button7 = New-Object System.Windows.Forms.Button
+$Button7.Location = New-Object System.Drawing.Size(250, 180)
+$Button7.Size = New-Object System.Drawing.Size(220, 50)
+$Button7.Text = "Indi_7_B"
+$Form.Controls.Add($Button7)  
 
-                # Select correct deploy from Download
-                $outputbox.appendtext("Unpacking...`r`n")
-                $unpack = .\7z.exe x "$Download2\$Download.7z" -o"$getDepLetter":\  -p5rd4c5vgcTvuKC -r
-                
-                # Move files to its proper path
-                $USBpath = "$getDepLetter':\'$Download" -replace "'", ""
-                $newgetDepLetter = "$getDepLetter':\'" -replace "'", ""
-                $newgetBootLetter = "$getBootLetter':\'" -replace "'", ""
+# Add Button8
+$Button8 = New-Object System.Windows.Forms.Button
+$Button8.Location = New-Object System.Drawing.Size(20, 230)
+$Button8.Size = New-Object System.Drawing.Size(220, 50)
+$Button8.Text = "ISeries"
+$Form.Controls.Add($Button8)
 
-                Get-ChildItem -Path "$USBpath\winpe" -Recurse | Move-Item -Destination $newgetBootLetter
-                Get-ChildItem -Path "$USBpath\deploy" -Recurse | Move-Item -Destination $newgetDepLetter 
-                Remove-Item -Path "$USBpath" -Force -Recurse
-                $outputbox.appendtext("Moving folders to its right path and cleaning..`r`n")
-            }
-            else {
-                $outputbox.appendtext("No Deploy match $newComparesUSBs`r`n")
-            }
-        }
-    }
-    $outputbox.appendtext("DONE`r`n")
+# Add Button9
+$Button9 = New-Object System.Windows.Forms.Button
+$Button9.Location = New-Object System.Drawing.Size(250, 230)
+$Button9.Size = New-Object System.Drawing.Size(220, 50)
+$Button9.Text = "I-Series+"
+$Form.Controls.Add($Button9) 
+
+# Add Button10
+$Button10 = New-Object System.Windows.Forms.Button
+$Button10.Location = New-Object System.Drawing.Size(20, 280)
+$Button10.Size = New-Object System.Drawing.Size(220, 50)
+$Button10.Text = "I-110"
+$Form.Controls.Add($Button10) 
+
+# Add Button11
+$Button11 = New-Object System.Windows.Forms.Button
+$Button11.Location = New-Object System.Drawing.Size(250, 280)
+$Button11.Size = New-Object System.Drawing.Size(220, 50)
+$Button11.Text = "I-110-850_W10"
+$Form.Controls.Add($Button11) 
+
+# Add Button12
+$Button12 = New-Object System.Windows.Forms.Button
+$Button12.Location = New-Object System.Drawing.Size(20, 330)
+$Button12.Size = New-Object System.Drawing.Size(220, 50)
+$Button12.Text = "Surface_Pro_SP6"
+$Form.Controls.Add($Button12) 
+
+
+$scriptPath = Get-ChildItem -Path $PSScriptRoot -Filter "Deploy.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+write-host "$scriptPath"
+$Button4.Add_Click({
+    Write-Host "Selecting Indi_A"
+    $argument = "-Param1 'Indi_A'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button5.Add_Click({
+    Write-Host "Selecting Indi_B"
+    $argument = "-Param1 'Indi_B'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button6.Add_Click({
+    Write-Host "Selecting Indi_7_A"
+    $argument = "-Param1 'Indi_7_A'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button7.Add_Click({
+    Write-Host "Selecting Indi_7_B"
+    $argument = "-Param1 'Indi_7_B'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button10.Add_Click({
+    Write-Host "Selecting I-110"
+    $argument = "-Param2 'I-110'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button11.Add_Click({
+    Write-Host "Selecting I-110-850_W10"
+    $argument = "-Param2 'I-110-850_W10'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button2.Add_Click({
+    Write-Host "Selecting I-110-850_W11"
+    $argument = "-Param2 'I-110-850_W11'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+
+$Button1.Add_Click({
+    Write-Host "Selecting ISeries_IOT"
+    $argument = "-Param3 'ISeries_IOT'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button8.Add_Click({
+    Write-Host "Selecting ISeries"
+    $argument = "-Param3 'ISeries'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button9.Add_Click({
+    Write-Host "Selecting I-Series+"
+    $argument = "-Param3 'I-Series+'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+
+$Button3.Add_Click({
+    Write-Host "Selecting Surface_Pro_SP7"
+    $argument = "-Param4 'Surface_Pro_SP7'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$Button12.Add_Click({
+    Write-Host "Selecting Surface_Pro_SP6"
+    $argument = "-Param4 'Surface_Pro_SP6'"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$scriptPath\Deploy.ps1`" $argument" -PassThru
+})
+
+$form.ShowDialog() | Out-Null
+
 }
 
 #B16
@@ -3695,7 +3775,7 @@ Function Troubleshoot {
     }
 
     #2 Listing Tobii Experience software that installed on this device
-    Write-LogT -Message "******Check Eye Tracker software******`r`n"
+    Write-LogT -Message "`r`n******Check Eye Tracker software******`r`n"
     $AppLists = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Tobii\ | 
     Get-ItemProperty | Where-Object { 
         $_.Displayname -like '*Tobii Experience Software*' -or
@@ -3756,7 +3836,7 @@ Function Troubleshoot {
     }
 
     #3 Getting installed Services that installed on this device
-    Write-LogT -Message "******Check services******`r`n"
+    Write-LogT -Message "`r`n******Check services******`r`n"
     $GetService = Get-Service -Name '*Tobii*'
     #Listing all installed Services
     if ($GetService.count -ne 0) {
@@ -3814,21 +3894,36 @@ Function Troubleshoot {
     }
     
     #4 Getting Processes that running on this device
-    Write-LogT -Message "******Check processes******`r`n"
-    $TobiiProcesses = "Tobii.EyeX.Engine", "Tobii.EyeX.Interaction", "Tobii.Service", "TobiiDynavox.EyeAssist.Engine", "TobiiDynavox.EyeAssist.RegionInteraction.Startup", "TobiiDynavox.EyeAssist.Smorgasbord", "TobiiDynavox.EyeAssist.TrayIcon", "TobiiDynavox.EyeTrackingSettings"
-    foreach ($TobiiProcess in $TobiiProcesses) {
-        Try {
-            $erroractionpreference = "Stop"
-            $GetTobiiProcess = Get-Process $TobiiProcess | Select-Object ProcessName
+    Write-LogT -Message "`r`n******Check processes******`r`n"
+    $TobiiRefProcesses = "Tobii.EyeX.Engine", "Tobii.EyeX.Interaction", "Tobii.Service", "TobiiDynavox.EyeAssist.Engine", "TobiiDynavox.EyeAssist.RegionInteraction.Startup", "TobiiDynavox.EyeAssist.Smorgasbord", "TobiiDynavox.EyeAssist.TrayIcon", "TobiiDynavox.EyeTrackingSettings"
+
+    $TobiiProcesses =  (Get-Process | Where-Object { $_.ProcessName -match "^(Tobii\.|TobiiDynavox\.)" }).ProcessName
+
+    $Uninstnames = (Compare-Object -DifferenceObject $TobiiProcesses -ReferenceObject $TobiiRefProcesses -CaseSensitive  | Select-Object InputObject).InputObject
+
+    if ($Uninstnames -eq $null) {
+        foreach ($TobiiProcess in $TobiiProcesses) {
+            Write-LogT -Message "PASS: $TobiiProcess is running."
         }
-        catch {
-            Write-LogT -Message "FAIL: $TobiiProcess is not running. Open Task Manager and run the process."
+    } elseif ($Uninstnames -gt 0) {
+        foreach ($Uninstname in $Uninstnames) {
+            Write-LogT -Message "FAIL: $Uninstname is not running."
         }
     }
-    Write-LogT -Message "Completed analyze processes"
 
+    
+    <#$TobiiProcesses = "Tobii.EyeX.Engine", "Tobii.EyeX.Interaction", "Tobii.Service", "TobiiDynavox.EyeAssist.Engine", "TobiiDynavox.EyeAssist.RegionInteraction.Startup", "TobiiDynavox.EyeAssist.Smorgasbord", "TobiiDynavox.EyeAssist.TrayIcon", "TobiiDynavox.EyeTrackingSettings"
+    foreach ($TobiiProcess in $TobiiProcesses) {
+        $GetTobiiProcess = Get-Process $TobiiProcess | Select-Object ProcessName
+        if ($GetTobiiProcess -ne $null) {
+            Write-LogT -Message "PASS: $TobiiProcess is running."
+        } else {
+            Write-LogT -Message "FAIL: $TobiiProcess is not running."
+        }
+    }
+    #>
     #5 Getting drivers that installed on this device
-    Write-LogT -Message "******Check drivers******`r`n"
+    Write-LogT -Message "`r`n******Check drivers******`r`n"
     $TobiiWindowsDrivers = Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -match "Tobii" } | Sort-object OriginalFileName -desc | Select-Object OriginalFileName, Driver
     if ($TobiiWindowsDrivers.count -ne 0) {
 
@@ -3897,7 +3992,7 @@ Function Troubleshoot {
     }
     
     #6 Check if there are valid calibration profiles
-    Write-LogT -Message "******Check calibration profiles/display setup******`r`n"
+    Write-LogT -Message "`r`n******Check calibration profiles/display setup******`r`n"
     $EyeXConfig = "HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig"
     if (Test-path $EyeXConfig) {
         $CurrentProfile = (Get-itemproperty -Path $EyeXConfig).currentuserprofile
