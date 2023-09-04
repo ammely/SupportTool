@@ -1,5 +1,5 @@
 ﻿#File version 
-$fileversion = "SupportTool v1.6.90.ps1"
+$fileversion = "SupportTool v1.6.91.ps1"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -1573,9 +1573,12 @@ Function Listapps {
     Write-Log -Message "`r`nReading battery info:`r`n" -filename "DeviceInfo"
     $key = 'HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Device' 
     if (Test-Path $key) {
-        $SerialNumber = (Get-ItemProperty -Path $key)."Serial Number" | Write-Log -Message "Device Serial Number is $SerialNumber`r`n" -filename "DeviceInfo"
-        $OEMImage = (Get-ItemProperty -Path $key)."OEM Image" | Write-Log -Message "Device OEM Image is $OEMImage`r`n" -filename "DeviceInfo"
-        $ProductKey = (Get-ItemProperty -Path $key)."Product Key" | Write-Log -Message "Device Product Key is $ProductKey`r`n" -filename "DeviceInfo"
+        $SerialNumber = (Get-ItemProperty -Path $key)."Serial Number" 
+        Write-Log -Message "Device Serial Number is $SerialNumber`r`n" -filename "DeviceInfo"
+        $OEMImage = (Get-ItemProperty -Path $key)."OEM Image"
+        Write-Log -Message "Device OEM Image is $OEMImage`r`n" -filename "DeviceInfo"
+        $ProductKey = (Get-ItemProperty -Path $key)."Product Key" 
+        Write-Log -Message "Device Product Key is $ProductKey`r`n" -filename "DeviceInfo"
     }
     else {
         $SerialNumber = (Get-CimInstance -ClassName Win32_bios).SerialNumber
@@ -2255,10 +2258,16 @@ Function Diagnostic {
 Function ETConnection {
     $outputBox.clear()
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    USBLogView
     if ($fpath.count -gt 0) {
         Set-Location $fpath
     }
-    $infofolder = "$fpath\ETConnectionOutput.txt"
+    
+    $ETConnection = "$fpath\ETConnection"
+    if (!(Test-Path $ETConnection)) {
+        New-Item -Path "$ETConnection" -ItemType Directory  
+    }
+    $infofolder = "$ETConnection\ETConnectionOutput.txt"
     if (!(Test-Path "$infofolder")) {
         New-Item -Path "$infofolder" -ItemType file 
     }
@@ -2294,6 +2303,21 @@ Function ETConnection {
         $outputbox.appendtext("$getinfo`r`n")
         $a++
     } while ($a -le $b)
+
+    #Copy logs into result folder
+    $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
+    $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                                                    ($_.Name -eq 'EyeAssistEngine.log') -or
+                                                    ($_.Name -eq 'EyeTrackingSettings.log') -or
+                                                    ($_.Name -eq 'RegionInteraction.log') -or
+                                                    ($_.Name -eq 'ServerLog.txt') -or
+                                                    ($_.Name -eq 'InteractionLog.txt') -or
+                                                    ($_.Name -eq 'ServiceLog.txt') -or
+                                                    ($_.Name -eq 'pr_log0.txt') 
+    } | Select-Object -expand Fullname
+    foreach ($file in $files) {
+        Copy-Item -Path $file -Destination $ETConnection -Recurse
+    }
     $outputbox.appendtext("Done! `r`n")
 }
 
@@ -2366,10 +2390,13 @@ Function RISamples {
     $outputBox.appendtext( "Starting TD region interaction sample...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     $fpathsample = Get-ChildItem -Path $PSScriptRoot -Filter "Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-   
-
-    $ConResults = "$fpath\ETConnectionSample.txt"
-    $SamResults = "$fpath\SampleResults.txt"
+    USBLogView
+    $RISamples = "$fpath\RISamples"
+    if (!(Test-Path $RISamples)) {
+        New-Item -Path "$RISamples" -ItemType Directory  
+    }
+    $ConResults = "$RISamples\ETConnectionSample.txt"
+    $SamResults = "$RISamples\SampleResults.txt"
     $ProcessList = @("Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample" )
     $SampleLog = "C:\trace\tobii\Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.log"
     if (!(Test-Path "$ConResults") -or !(Test-Path "$SamResults")) {
@@ -2426,10 +2453,53 @@ Function RISamples {
     }
     $outputbox.appendtext("Results are saved in $fpath! `r`n")
     #Remove-Variable * -ErrorAction SilentlyContinue
+
+    $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                                                    ($_.Name -eq 'EyeAssistEngine.log') -or
+                                                    ($_.Name -eq 'EyeTrackingSettings.log') -or
+                                                    ($_.Name -eq 'RegionInteraction.log') -or
+                                                    ($_.Name -eq 'ServerLog.txt') -or
+                                                    ($_.Name -eq 'InteractionLog.txt') -or
+                                                    ($_.Name -eq 'ServiceLog.txt') -or
+                                                    ($_.Name -eq 'pr_log0.txt') 
+    } | Select-Object -expand Fullname
+    foreach ($file in $files) {
+        Copy-Item -Path $file -Destination $RISamples -Recurse
+    }
     $outputbox.appendtext("Done! `r`n")
 }
 
 #B21
+Function Sleeper {
+    $outputBox.clear()
+    $outputBox.appendtext( "Starting Sleeper.exe then load configuration and start sleep...`r`n" )
+    $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "Sleeper.exe" -Recurse).FullName | Split-Path 
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        start-process .\Sleeper.exe
+    }
+    else { 
+        $outputbox.appendtext("File Sleeper.exe is missing!`r`n" )
+    }	
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B22
+Function USBLogView {
+    $outputBox.clear()
+    $outputBox.appendtext( "running USBLogView.exe...`r`n" )
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "USBLogView.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    if ($fpath.count -gt 0) {
+        Set-Location $fpath
+        Start-Process "USBLogView.exe"
+    }
+    else { 
+        $outputbox.appendtext("File handle.exe is missing!`r`n" )
+    }
+    $outputbox.appendtext("Done! `r`n")
+}
+
+#B23
 Function BatteryLog {
     $outputBox.clear()
     $outputBox.appendtext( "Starting TobiiDynavox.QA.BatteryMonitor.exe...`r`n" )
@@ -2445,85 +2515,56 @@ Function BatteryLog {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B22
-Function Sleeper {
-    $outputBox.clear()
-    $outputBox.appendtext( "Starting Sleeper.exe then load configuration and start sleep...`r`n" )
-    $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "Sleeper.exe" -Recurse).FullName | Split-Path 
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
-        start-process .\Sleeper.exe
-    }
-    else { 
-        $outputbox.appendtext("File Sleeper.exe is missing!`r`n" )
-    }	
-    $outputbox.appendtext("Done! `r`n")
-}
-
-#B23
-Function USBLogView {
-    $outputBox.clear()
-    $outputBox.appendtext( "running USBLogView.exe...`r`n" )
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "USBLogView.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    if ($fpath.count -gt 0) {
-        Set-Location $fpath
-        Start-Process "USBLogView.exe"
-    }
-    else { 
-        $outputbox.appendtext("File handle.exe is missing!`r`n" )
-    }
-    $outputbox.appendtext("Done! `r`n")
-}
-
-#B24 Deploy from v0.2
+#B24 Deploy from v0.3
 Function Deployment {
     #USB namings:
-    #"ISeries_MPD"         "ISeries_MPB"
     #"Indi_AD"             "Indi_AB"
-    #"Indi_BD"             "Indi_BB",
-    #"ISeriesD"            "ISeriesB"
-    #"I-110D"              "I-110B"
+    #"Indi_BD"             "Indi_BB"
     #"Indi_7_AD"           "Indi_7_AB"
     #"Indi_7_BD"           "Indi_7_BB"
+    #"I-110D"              "I-110B"
+    #"I-Series+D"          "I-SeriesB"
     #"Surface_SP6D"        "Surface_SP6"
     #"Surface_SP7D"        "Surface_SP7" 
-    #"I-Series+D"          "I-SeriesB"
+    #"ISeriesD"            "ISeriesB"
     #"I-110-8W10D"         "I-110-8W10B"
     #"I-110-8W11D"         "I-110-8W11B"
+    #"ISeries_MPD"         "ISeries_MPB"
+    #"ISeries_IOTD"        "ISeries_IOT"
 
-    $Deployments = @("ISeries_MP", "Indi_A", "Indi_B", "ISeries", "I-Series+", "I-110", "Indi_7_A", "Indi_7_B", "Surface_Pro_SP6", "Surface_Pro_SP7", "I-110-850_W11" , "I-110-850_W10" )
-    Write-host "Deployments list: $Deployments"
+    $ReferenceD = @("Indi_A", "Indi_B", "Indi_7_A", "Indi_7_B", "I-110", "I-Series+", "Surface_Pro_SP6", 
+        "ISeries", "Surface_Pro_SP7", "I-110-850_W11" , "I-110-850_W10", 
+        "ISeries_MP", "ISeries_IOT")
+    #Write-host "Reference Deploys list: $ReferenceD"
 
-    $availableUSB = (@(Get-Volume | Where-Object DriveType -eq Removable | Where-Object FileSystemType -eq NTFS |  Select-Object FileSystemLabel).FileSystemLabel ) -replace ".$"
-    write-host "Available drives: $availableUSB"
+    $availableUSBs = (@(Get-Volume | Where-Object DriveType -eq Removable | Where-Object FileSystemType -eq NTFS |  Select-Object FileSystemLabel).FileSystemLabel ) -replace ".$"
+    $outputbox.appendtext("Available USB drives: $availableUSBs`r`n")
 
-    foreach ($availableUSBs in $availableUSB) {
-        if ( $availableUSBs -match "Surface_SP6") {
+    foreach ($availableUSB in $availableUSBs) {
+        if ( $availableUSB -match "Surface_SP6") {
             $ComparesUSB = "Surface_Pro_SP6"
         }
-        elseif ( $availableUSBs -match "Surface_SP7") {
+        elseif ( $availableUSB -match "Surface_SP7") {
             $ComparesUSB = "Surface_Pro_SP7"
         }
-        elseif ( $availableUSBs -match "I-110-8W11") {
+        elseif ( $availableUSB -match "I-110-8W11") {
             $ComparesUSB = "I-110-850_W11"
         }
-        elseif ( $availableUSBs -match "I-110-8W10") {
+        elseif ( $availableUSB -match "I-110-8W10") {
             $ComparesUSB = "I-110-850_W10"
         }
         else {
-            $ComparesUSB = (Compare-Object -DifferenceObject $Deployments -ReferenceObject $availableUSB -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject
+            $ComparesUSB = (Compare-Object -DifferenceObject $ReferenceD -ReferenceObject $availableUSB -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject
         }
-        Write-Host "Available deploys that match available USBs: $ComparesUSB"
+        $outputbox.appendtext("`r`nSelecting: $ComparesUSB`r`n")
 
         foreach ($ComparesUSBs in $ComparesUSB) {
-            write-host "Selecting deploy: $ComparesUSBs" 
 
-            $DeployName = "$availableUSBs" + "D"
+            $DeployName = "$availableUSB" + "D"
 
             if ("$ComparesUSBs" -eq "I-Series+") {
                 $NewComparesUSB = $ComparesUSBs.Replace( "+", "")
                 $BootName = "$NewComparesUSB" + "B"
-                Write-Host "Device is I-Series+"
             }
             elseif ("$ComparesUSBs" -eq "Surface_Pro_SP6") {
                 $NewComparesUSB = $ComparesUSBs.Replace("_Pro", "")
@@ -2541,47 +2582,36 @@ Function Deployment {
                 $NewComparesUSB = $ComparesUSBs.Replace("50_", "")
                 $BootName = $NewComparesUSB + "B"
             }
+            elseif ("$ComparesUSBs" -eq "ISeries_IOT") {
+                $NewComparesUSB = $ComparesUSBs.Replace("B", "")
+                $BootName = $NewComparesUSB
+            }
             else {
                 $BootName = "$ComparesUSBs" + "B"
-                Write-Host "Device is $BootName"
             }
-            write-host "Setting deploy name to $DeployName and $BootName"
-
-            write-host "DeployName$DeployName"
-            if ($DeployName -match "Surface_Pro" -or $DeployName -match "ISeries" -or $ComparesUSBs -match "I-110-850_W" -or $ComparesUSBs -match "Surface_Pro_SP7") {
-                $Download = ((Get-ChildItem -Path "$env:USERPROFILE\Downloads" | Where-Object { $_.Name -match "$ComparesUSBs" }).Name ) -replace ".7z", ""
-                Write-Host "Found deploy: $Download"
-            }
-            else {
-                $Download = ((Get-ChildItem -Path "D:\" | Where-Object { $_.Name -match "$ComparesUSBs" }).Name ) -replace ".7z", ""
-            }
-            Write-Host "Found deploy: $Download"
+            $outputbox.appendtext("Setting deploy name to $DeployName and $BootName`r`n")
+            $paths = "$env:USERPROFILE\Downloads"#, "D:\"
+            $Download = ((Get-ChildItem -Path $paths | Where-Object { $_.Name -match "$ComparesUSBs" }).Name ) -replace ".7z", ""
+            $Download2 = Get-ChildItem -Path $paths  | Where-Object { $_.Name -match "$ComparesUSBs" } | Select-Object -expand Fullname | Split-Path
 
             Set-Location  "C:\Program Files\7-Zip"
-            #Set-Location  "C:\Program Files (x86)\7-Zip" 
             if ($Download) {
+                $outputbox.appendtext("Found deploy: $Download`r`n")
 
                 # clear content in USB
-                Write-Host "Formatting both $DeployName and $BootName"
-                Format-Volume -FriendlyName $DeployName -FileSystem NTFS -NewFileSystemLabel $DeployName
-                Format-Volume -FriendlyName $BootName -FileSystem FAT32 -NewFileSystemLabel $BootName
+                $outputbox.appendtext("Formatting both $DeployName and $BootName`r`n")
+                $Test1 = Format-Volume -FriendlyName $DeployName -FileSystem NTFS -NewFileSystemLabel $DeployName
+                $Test2 = Format-Volume -FriendlyName $BootName -FileSystem FAT32 -NewFileSystemLabel $BootName
 
                 # Find and select driver for USB
                 $getDepLetter = (Get-Volume | Where-Object { ($_.FileSystemLabel -eq "$DeployName") }).DriveLetter
                 $getBootLetter = (Get-Volume | Where-Object { ($_.FileSystemLabel -eq "$BootName") }).DriveLetter
-                Write-Host "Found following driver letters: $getDepLetter & $getBootLetter "
+                $outputbox.appendtext("Found following driver letters: $getDepLetter & $getBootLetter`r`n")
 
                 # Select correct deploy from Download
-                write-host "Unpacking..."
-                if ($DeployName -match "Surface_Pro" -or $DeployName -match "ISeries" -or $ComparesUSBs -match "I-110-850_W" -or $ComparesUSBs -match "Surface_Pro_SP7") {
-                    $unpack = .\7z.exe x $env:USERPROFILE\Downloads\"$Download".7z -o"$getDepLetter":\  -p5rd4c5vgcTvuKC -r
-                }
-                else {
-                    $unpack = .\7z.exe x D:\"$Download".7z -o"$getDepLetter":\  -p5rd4c5vgcTvuKC -r
-                }
-        
-                Write-Host "Unpack folder is $unpack"
-
+                $outputbox.appendtext("Unpacking...`r`n")
+                $unpack = .\7z.exe x "$Download2\$Download.7z" -o"$getDepLetter":\  -p5rd4c5vgcTvuKC -r
+                
                 # Move files to its proper path
                 $USBpath = "$getDepLetter':\'$Download" -replace "'", ""
                 $newgetDepLetter = "$getDepLetter':\'" -replace "'", ""
@@ -2590,14 +2620,14 @@ Function Deployment {
                 Get-ChildItem -Path "$USBpath\winpe" -Recurse | Move-Item -Destination $newgetBootLetter
                 Get-ChildItem -Path "$USBpath\deploy" -Recurse | Move-Item -Destination $newgetDepLetter 
                 Remove-Item -Path "$USBpath" -Force -Recurse
-                Write-Host "Moving folders to its right path and cleaning"
+                $outputbox.appendtext("Moving folders to its right path and cleaning..`r`n")
             }
             else {
-                Write-Host "No Deploy match $ComparesUSBs"
+                $outputbox.appendtext("No Deploy match $ComparesUSBs`r`n")
             }
         }
     }
-    $outputbox.appendtext("Done! `r`n")
+    $outputbox.appendtext("DONE`r`n")
 }
 
 #B25
@@ -3199,8 +3229,8 @@ Function BeforeUninstallGG {
 
 Function Write-LogT {
     Param ($Message)
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    Set-Location $fpath
+    $fpath1 = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path  
+    Set-Location $fpath1
     "$(get-date -format "yyyy-MM-dd HH:mm:ss"): $($Message)" | out-file "$fpath\TroubleshootingsLog.txt" -Append
     $OutputBox.AppendText("$Message" + "`r`n" )
 }
@@ -3209,15 +3239,13 @@ Function Write-LogT {
 Function Troubleshoot {
     $outputBox.clear()
     #File version 
-    $fileversion = "Troubleshooting 0.4.ps1"
-    $PCEyeLatestVersion = "4.149.0.21578"
-    $ISeriesLatestVersion = "4.149.0.21578"
-    $LatestPDKVersion = "1.36.3.0_59107508"
+    $VersionLatest = "4.163.0.24281"
+    $PDKVersionLatest = "1.37.4.0_f2b4e724c9"
 
     $PCEyeDisplayName = "Tobii Experience Software For Windows (PCEye5)"
     $ISeriesDisplayName = "Tobii Experience Software For Windows (I-Series)"
-    $ReqServicePCEye5 = "TobiiIS5LARGEPCEYE5"
-    $ReqServiceGibbon = "TobiiIS5GIBBONGAZE"
+    $ServicePCEye5 = "TobiiIS5LARGEPCEYE5"
+    $ServiceGibbon = "TobiiIS5GIBBONGAZE"
 
     #1 Pinging ET and checking HW & fw
     Write-LogT -Message "===============FIRST===============`r`nPinging ET and checking HW model.."
@@ -3231,68 +3259,72 @@ Function Troubleshoot {
         catch {
             Write-LogT -Message "Error starting PDK. Make sure that ET is connected and (TobiiIS5XXXX) available in Task Manager-Services."
         }
-        try { 
-            $erroractionpreference = "Stop"
-            $global:serialnumber = .\Tdx.EyeTrackerInfo.exe --serialnumber
+
+        $global:serialnumber = .\Tdx.EyeTrackerInfo.exe --serialnumber
+        if ($serialnumber.count -gt 0) {
             if ($serialnumber -match "IS514") {
                 $global:LatestDisplayName = "$PCEyeDisplayName"
-                $global:LatestVersion = "$PCEyeLatestVersion"
                 Write-LogT -Message "PASS: Connected Eye Tracker is PCEye5 with S/N $serialnumber"
             }
             elseif ($serialnumber -match "IS502") {
                 $global:LatestDisplayName = "$ISeriesDisplayName"
-                $global:LatestVersion = "$ISeriesLatestVersion"
                 Write-LogT -Message "PASS: Connected Eye Tracker is I-Series with S/N $serialnumber"
             }
         }
-        Catch [System.Management.Automation.RemoteException] {
+        elseif ($serialnumber.count -eq 0) {
             Write-LogT -Message "FAIL: No Eye Tracker Connected. Make sure that ET is connected and there is PDK on this device."
         }
     }
 
     #2 Listing Tobii Experience software that installed on this device
     Write-LogT -Message "===============SECOND===============`r`nChecking installed Eye Tracker software.."
-    $AllListApps = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Tobii\ | 
+    $AppLists = Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Tobii\ | 
     Get-ItemProperty | Where-Object { 
         $_.Displayname -like '*Tobii Experience Software*' -or
         $_.Displayname -like '*Tobii Device Drivers*' -or
         $_.Displayname -like '*Tobii Eye Tracking For Windows*' -or
         $_.Displayname -like '*Tobii Eye Tracking*'
     }
-    if ($AllListApps) {
-        $AppLists = $AllListApps.DisplayName
-        if (($AppLists.count -eq 1) -and ($AppLists -eq $LatestDisplayName)) { 
-            $DisplayVersion = $AllListApps.displayversion
-            if (($DisplayVersion) -and ($DisplayVersion -eq $LatestVersion)) {
-                Write-LogT -Message "PASS: Installed $AppLists is correct, $AppLists $DisplayVersion."
-            }
-            else {
-                Write-LogT -Message "FAIL: $AppLists $DisplayVersion is not the latest. Upgrade the software through Update Notifier."
-            }
+
+    $DisplayNameApps = $AppLists.DisplayName
+    $DisplayVersion = $AppLists.displayversion
+	
+    if ($DisplayNameApps.count -eq 1) {
+        Write-LogT -Message "PASS: $DisplayNameApps is installed."
+        if ($DisplayNameApps -eq $LatestDisplayName) { 
+            Write-LogT -Message "PASS: $DisplayNameApps is correct SW for the HW."
         }
-        elseif ($AppLists.count -gt 1) {
-            Write-LogT -Message "FAIL: Installed ET software on this device are following:"
-            foreach ($L in $AppLists) {
-                Write-LogT -Message "$L`r`n"
-            }
-            Write-LogT -Message "Uninstall all sw named above and install only $LatestDisplayName $LatestVersion."
-        }
-        # Check for Experience app
-        $AppPackage = Get-AppxPackage -Name *TobiiAB.TobiiEyeTrackingPortal*
-        if ($AppPackage) {
-            Write-LogT -Message "FAIL: $AppPackage Shall be removed."
-            $regpaths = "HKLM:\SYSTEM\CurrentControlSet\Services\Tobii Interaction Engine",
-            "HKLM:\SYSTEM\CurrentControlSet\Services\Tobii Service",
-            "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiGeneric",
-            "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiIS5LARGEPCEYE5",
-            "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiIS5EYETRACKER5"
-            if (test-path $regpaths) {
-                Write-LogT -Message "FAIL: Delete $regpaths"
-            }
-        }
+        elseif ($DisplayNameApps -ne $LatestDisplayName) {
+            Write-LogT -Message "FAIL: No HW attached."
+        }	
     } 
-    elseif (!($AllListApps)) {
-        Write-LogT -Message "FAIL: NO Eye Tracker SW installed, install $LatestDisplayName $LatestVersion."
+    elseif ($DisplayNameApps.count -gt 1) {
+        Write-LogT -Message "FAIL: Installed ET software on this device are following:"
+        foreach ($L in $DisplayNameApps) {
+            Write-LogT -Message "$L`r`n"
+        }
+        Write-LogT -Message "Uninstall all sw named above and install only $LatestDisplayName $VersionLatest."
+    }
+	
+    if ($DisplayVersion -eq $VersionLatest) {
+        Write-LogT -Message "PASS: Latest version of $DisplayNameApps is installed, $DisplayVersion."
+    }
+    else {
+        Write-LogT -Message "FAIL: $DisplayNameApps is not the latest. Upgrade the software through Update Notifier."
+    }
+	
+    # Check for Experience app
+    $AppPackage = Get-AppxPackage -Name *TobiiAB.TobiiEyeTrackingPortal*
+    if ($AppPackage) {
+        Write-LogT -Message "FAIL: $AppPackage Shall be removed."
+        $regpaths = "HKLM:\SYSTEM\CurrentControlSet\Services\Tobii Interaction Engine",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\Tobii Service",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiGeneric",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiIS5LARGEPCEYE5",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\TobiiIS5EYETRACKER5"
+        if (test-path $regpaths) {
+            Write-LogT -Message "FAIL: Delete $regpaths"
+        }
     }
 
     $AllTDListApps = (Get-ChildItem -Recurse -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Tobii\ | 
@@ -3313,36 +3345,40 @@ Function Troubleshoot {
         $EyeXPath = "C:\Program Files\Tobii\Tobii EyeX"
         if (Test-Path $EyeXPath) {
             if ($global:serialnumber -match "IS502") {
-                $global:ReqService = $ReqServiceGibbon
+                $global:ReqService = $ServiceGibbon
                 $PDKversions = Get-ChildItem -Path $EyeXPath -Recurse -file -include "platform_runtime_IS5GIBBONGAZE_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
             }
             elseif ($global:serialnumber -match "IS514") {
-                $global:ReqService = $ReqServicePCEye5
+                $global:ReqService = $ServicePCEye5
                 $PDKversions = Get-ChildItem -Path $EyeXPath -Recurse -file -include "platform_runtime_IS5LARGEPCEYE5_service.exe" | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
             } 
-        } 
-        if ($ReqService) {
+        }
+        $TobiiService = $GetService | Where-Object { $_.Name -eq "Tobii Service" }
+        if ( $TobiiService) {
+            #write-host " pass" 
+            Write-LogT -Message "PASS: Tobii Service is installed."
+        }
+        elseif (!($TobiiService)) {
+            #write-host " 2" 
+            Write-LogT -Message "FAIL: Tobii Service is not intsalled. Uninstall Tobii Experince Software and re-install it again."
+        }
+        $ServiceStatus = ($GetService | Where-Object { $_.Status -ne "Running" }).name
+        If ($ServiceStatus) {
+            foreach ($ServiceStatuss in $ServiceStatus) {
+                Write-LogT -Message "FAIL: $ServiceStatuss is not running. Open Task Manager and run the service."
+            }
+        }
+
+        if ($PDKversions) {
             $Compares = (Compare-Object -DifferenceObject $GetService -ReferenceObject $ReqService -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject
             if ($Compares -eq $ReqService ) {
-                if ($PDKversions -match $LatestPDKVersion) {
+                if ($PDKversions -match $PDKVersionLatest) {
                     Write-LogT -Message "PASS: Latest PDK ($ReqService) $PDKversions is installed."
                 }
                 else {
-                    Write-LogT -Message "FAIL: PDK ($ReqService $PDKversions) is not the latest, make sure that $LatestDisplayName $LatestVersion is installed."
+                    Write-LogT -Message "FAIL: PDK ($ReqService $PDKversions) is not the latest, make sure that $LatestDisplayName $VersionLatest is installed."
                 }
-                $TobiiService = $GetService | Where-Object { $_.Name -eq "Tobii Service" }
-                if ( $TobiiService) {
-                    Write-LogT -Message "PASS: Tobii Service is installed."
-                }
-                elseif (!($TobiiService)) {
-                    Write-LogT -Message "FAIL: Tobii Service is not intsalled. Uninstall Tobii Experince Software and re-install it again."
-                }
-                $ServiceStatus = ($GetService | Where-Object { $_.Status -ne "Running" }).name
-                If ($ServiceStatus) {
-                    foreach ($ServiceStatuss in $ServiceStatus) {
-                        Write-LogT -Message "FAIL: $ServiceStatuss is not running. Open Task Manager and run the service."
-                    }
-                }
+                
                 $AvaliablePDK = (Get-Service -DisplayName "*Tobii Runtime Service*").name
                 $ComparesPDK = (Compare-Object -DifferenceObject $AvaliablePDK -ReferenceObject $Compares -CaseSensitive  | Select-Object InputObject).InputObject
                 if (($ComparesPDK)) {
@@ -3353,11 +3389,13 @@ Function Troubleshoot {
                 Write-LogT -Message "FAIL: NO PDK INSTALLED. Make sure $LatestDisplayName is installed."
             }
         } 
-    } 
+        else {
+            Write-LogT -Message "FAIL: No ET HW found. Make sure ET is connected."
+        }
+    }
     else {
         Write-LogT -Message "FAIL: No ET Service found. Make sure $LatestDisplayName is installed."
     }
-
     #4 Getting Processes that running on this device
     Write-LogT -Message "===============FOURTH===============`r`nChecking processes.."
     $TobiiProcesses = "Tobii.EyeX.Engine", "Tobii.EyeX.Interaction", "Tobii.Service", "TobiiDynavox.EyeAssist.Engine", "TobiiDynavox.EyeAssist.RegionInteraction.Startup", "TobiiDynavox.EyeAssist.Smorgasbord", "TobiiDynavox.EyeAssist.TrayIcon", "TobiiDynavox.EyeTrackingSettings"
@@ -3375,6 +3413,7 @@ Function Troubleshoot {
     Write-LogT -Message "===============FIFTH===============`r`nChecking drivers.."
     $TobiiWindowsDrivers = Get-WindowsDriver -Online | Where-Object { $_.OriginalFileName -match "Tobii" } | Sort-object OriginalFileName -desc | Select-Object OriginalFileName, Driver
     if ($TobiiWindowsDrivers.count -ne 0) {
+
         $NewTobiiDrivers = $TobiiWindowsDrivers.originalfilename -replace "C:", "" -replace "(?<=\\).+?(?=\\)", "" -replace "\\\\\\", "" 
 
         $b = $NewTobiiDrivers | Select-Object -Unique
@@ -3399,31 +3438,36 @@ Function Troubleshoot {
 
     $SignedDrivers = (Get-WmiObject Win32_PnPSignedDriver | Where-Object { $_.Manufacturer -match "Tobii" } | Select-Object DeviceName).DeviceName
     $d = "Tobii Hello Sensor", "Tobii Eye Tracker HID", "Tobii Device"
-    $CompareSignedDrivers = (Compare-Object -ReferenceObject $d -DifferenceObject $SignedDrivers | Where-Object { $_.SideIndicator -eq "<=" }).InputObject
-    if ($CompareSignedDrivers.count -gt 0) {
-        Write-LogT -Message "FAIL: $CompareSignedDrivers is missing. Uninstall Tobii Experience Software and re-install it again." 
+    if ($SignedDrivers.Count -eq 0) {
+        Write-LogT -Message "FAIL: No signed drivers found. Uninstall Tobii Experience Software and re-install it again." 
+        
     }
-
+    elseif ($SignedDrivers.Count -gt 0) {
+        $CompareSignedDrivers = (Compare-Object -ReferenceObject $d -DifferenceObject $SignedDrivers | Where-Object { $_.SideIndicator -eq "<=" }).InputObject
+        if ($CompareSignedDrivers.count -gt 0) {
+            Write-LogT -Message "FAIL: $CompareSignedDrivers is missing. Uninstall Tobii Experience Software and re-install it again." 
+        }
+    }
     #List from Device Manager
     #$GetDriverStatus = (Get-PnpDevice -FriendlyName '*Tobii*' | Where-Object { $_.Status -ne "OK" } | Select-Object FriendlyName, InstanceId).FriendlyName
     $GetPnpDrivers = Get-PnpDevice -FriendlyName '*Tobii*' | Select-Object Status, Class, FriendlyName, InstanceId
     $ReferencePnpDrivers = "Tobii Device", "Tobii Hello Sensor", "Tobii Eye Tracker HID"
 
-    foreach ($GetPnpDriver in $GetPnpDrivers ) {
-        if ($GetPnpDriver.Status -ne "OK") {
-            $getPnpDriverName = $GetPnpDriver.FriendlyName
-            $getPnpDriverStatus = $GetPnpDriver.status
-            Write-LogT -Message "FAIL: $getPnpDriverName Status is $getPnpDriverStatus..Make sure that all services are running or uninstall Tobii Experience Software and re-install it again."
-            #write-host $GetPnpDriver.FriendlyName "Status is" $GetPnpDriver.status
-        }
-    }
+    #foreach ($GetPnpDriver in $GetPnpDrivers ) {
+    #    if ($GetPnpDriver.Status -ne "OK") {
+    #        $getPnpDriverName = $GetPnpDriver.FriendlyName
+    #        $getPnpDriverStatus = $GetPnpDriver.status
+    #        Write-LogT -Message "FAIL: $getPnpDriverName Status is $getPnpDriverStatus..re-install Tobii Experience."
+    #        #write-host $GetPnpDriver.FriendlyName "Status is" $GetPnpDriver.status
+    #    }
+    #}
     $ComparePnpDrivers = (Compare-Object -ReferenceObject $ReferencePnpDrivers -DifferenceObject $GetPnpDrivers.FriendlyName | Where-Object { $_.SideIndicator -eq "<=" }).InputObject
     if ($ComparePnpDrivers -gt 0) {
         foreach ($ComparePnpDriver in  $ComparePnpDrivers) {
             Write-LogT -Message "FAIL: $ComparePnpDriver is missing, Uninstall Tobii Experience Software and re-install it again."
         }
     }
-        
+    
     #6 Check if there are valid calibration profiles
     Write-LogT -Message "===============SIXTH===============`r`nChecking calibration profiles and display setup.."
     $EyeXConfig = "HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig"
@@ -3474,6 +3518,7 @@ Function Troubleshoot {
     catch {
         Write-LogT -Message "FAIL: No display setup has been found! Open Tobii Dynavox Eye Tracking and perform display setup if possible."
     }
+
     #pause
     Write-LogT -Message "Done!"
 }
@@ -3706,28 +3751,28 @@ $Button20.Add_Click{ RISamples }
 $Button21 = New-Object System.Windows.Forms.Button
 $Button21.Location = New-Object System.Drawing.Size(495, 450)
 $Button21.Size = New-Object System.Drawing.Size(75, 30)
-$Button21.Text = "Battery"
+$Button21.Text = "4Sleeper"
 $Button21.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button21)
-$Button21.Add_Click{ BatteryLog }
+$Button21.Add_Click{ Sleeper }
 
 #B22 Button22 "Sleeper"
 $Button22 = New-Object System.Windows.Forms.Button
 $Button22.Location = New-Object System.Drawing.Size(420, 480)
 $Button22.Size = New-Object System.Drawing.Size(75, 30)
-$Button22.Text = "4Sleeper"
+$Button22.Text = "5USBLog"
 $Button22.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button22)
-$Button22.Add_Click{ Sleeper }
+$Button22.Add_Click{ USBLogView }
 
 #B23 Button23 "USBLogView"
 $Button23 = New-Object System.Windows.Forms.Button
 $Button23.Location = New-Object System.Drawing.Size(495, 480)
 $Button23.Size = New-Object System.Drawing.Size(75, 30)
-$Button23.Text = "USBLog"
+$Button23.Text = "6Battery"
 $Button23.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button23)
-$Button23.Add_Click{ USBLogView }
+$Button23.Add_Click{ BatteryLog }
 
 #B24 Button24 "Deployment"
 $Button24 = New-Object System.Windows.Forms.Button
@@ -3742,7 +3787,7 @@ $Button24.Add_Click{ Deployment }
 $Button25 = New-Object System.Windows.Forms.Button
 $Button25.Location = New-Object System.Drawing.Size(420, 510)
 $Button25.Size = New-Object System.Drawing.Size(75, 30)
-$Button25.Text = "Log"
+$Button25.Text = "LogC"
 $Button25.Font = New-Object System.Drawing.Font ("" , 8, [System.Drawing.FontStyle]::Regular)
 $form.Controls.add($Button25)
 $Button25.Add_Click{ LogCollector }
