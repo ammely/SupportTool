@@ -1,4 +1,8 @@
-﻿#v1.6.5
+﻿
+#File version 
+$fileversion = "SupportTool v1.6.6"
+$LogCollectorTool = "LogCollectorTool_V0.9.ps1"
+
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 { Start-Process powershell.exe "-NoProfile -Windowstyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
@@ -81,18 +85,25 @@ Function UninstallProgressiveSweet {
     $form = New-Object System.Windows.Forms.Form
     $flowlayoutpanel = New-Object System.Windows.Forms.FlowLayoutPanel
     $buttonOK = New-Object System.Windows.Forms.Button
+    $buttoncancle = New-Object System.Windows.Forms.Button
 
     $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
     Get-ItemProperty  | Where-Object { 
-        ($_.Displayname -eq "Tobii Dynavox Switcher") -or
-        ($_.Displayname -eq "Tobii Dynavox Switcher (Beta)") -or
-        ($_.Displayname -eq "Tobii Dynavox Browse") -or
-        ($_.Displayname -eq "Tobii Dynavox Browse (Beta)") -or
-        ($_.Displayname -eq "Tobii Dynavox Phone (Beta)") -or
-        ($_.Displayname -eq "Tobii Dynavox Talk (Beta)") -or
-        ($_.Displayname -eq "Tobii Dynavox Control (Beta)") -or
-        ($_.Displayname -eq "Tobii Dynavox Control")
+    ($_.Displayname -eq "Tobii Dynavox Switcher") -or
+    ($_.Displayname -eq "Tobii Dynavox Switcher (Beta)") -or
+    ($_.Displayname -eq "Tobii Dynavox Browse") -or
+    ($_.Displayname -eq "Tobii Dynavox Browse (Beta)") -or
+    ($_.Displayname -eq "Tobii Dynavox Phone") -or
+    ($_.Displayname -eq "Tobii Dynavox Phone (Beta)") -or
+    ($_.Displayname -eq "Tobii Dynavox Talk") -or
+    ($_.Displayname -eq "Tobii Dynavox Talk (Beta)") -or
+    ($_.Displayname -eq "Tobii Dynavox Control") -or
+    ($_.Displayname -eq "Tobii Dynavox Control (Beta)") -or
+    ($_.Displayname -eq "Tobii Dynavox Control (Development)") -or
+    ($_.Displayname -eq "Tobii Dynavox Telephony Bluetooth Driver")
+
     } | Select-Object Displayname, UninstallString
+
     if ($TobiiVer) {   
         $usernames = @($TobiiVer.Displayname)
         $totalvalues = ($usernames.count)
@@ -117,7 +128,7 @@ Function UninstallProgressiveSweet {
                 $script:CheckBoxArray += $DynamicCheckBox
             }       
         }
-    
+
         $form.Controls.Add($flowlayoutpanel)
         $form.Controls.Add($buttonOK)
         $form.AcceptButton = $buttonOK
@@ -133,165 +144,366 @@ Function UninstallProgressiveSweet {
         $form.Text = 'Progressive Sweet'
         $form.add_Load($($form_Load))
     } 
-    else { 
-        $OutputBox.AppendText( "Empty. `r`n" )
-    }
+
     $flowlayoutpanel.BorderStyle = 'FixedSingle'
     $flowlayoutpanel.Location = '48, 13'
     $flowlayoutpanel.Margin = '4, 4, 4, 4'
     $flowlayoutpanel.Name = 'flowlayoutpanel1'
     $flowlayoutpanel.AccessibleName = 'flowlayoutpanel1'
-    $flowlayoutpanel.Size = "400, $flowlayoutsize"
-    $flowlayoutpanel.TabIndex = 1
+    if ($flowlayoutsize) {
+        $flowlayoutpanel.Size = "400, $flowlayoutsize"
+        $flowlayoutpanel.TabIndex = 1
     
-    $buttonOK.Anchor = 'Bottom, Right'
-    $buttonOK.DialogResult = 'OK'
-    $buttonOK.Location = "383, $buttonplacement"
-    $buttonOK.Margin = '4, 4, 4, 4'
-    $buttonOK.Name = 'buttonOK'
-    $buttonOK.Size = '100, 30'
-    $buttonOK.TabIndex = 0
-    $buttonOK.Text = '&OK'
-    
+        $buttonOK.Anchor = 'Bottom, Right'
+        $buttonOK.DialogResult = 'OK'
+        $buttonOK.Location = "383, $buttonplacement"
+        $buttonOK.Margin = '4, 4, 4, 4'
+        $buttonOK.Name = 'buttonOK'
+        $buttonOK.Size = '100, 30'
+        $buttonOK.TabIndex = 0
+        $buttonOK.Text = '&OK'
+    }
+    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton.Location = New-Object System.Drawing.Point(283, $buttonplacement)
+    $cancelButton.Size = New-Object System.Drawing.Size(100, 30)
+    $cancelButton.Text = 'Cancel'
+    $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $form.CancelButton = $cancelButton
+    $form.Controls.Add($cancelButton)
     $form.ShowDialog()
+
     foreach ($cbox in $CheckBoxArray) {
-        if ($cbox.CheckState -eq "Unchecked") {
-            $Outputbox.Appendtext( "No SW were selected`r`n" )
-        }
-        elseif ($cbox.CheckState -eq "Checked") {
+        if ($cbox.CheckState -eq "Checked") {
             #If first answer equals yes or no
-            $answer1 = $wshell.Popup("This will remove selected software.`r`nAre you sure you want to continue?`r`n", 0, "Caution", 48 + 4)
-            if ($answer1 -eq 6) {
-                $Outputbox.Appendtext( "Starting... Do NOT close this window while it is in progress..`r`n" )
-            }
-            elseif ($answer1 -ne 6) {
-                $Outputbox.Appendtext( "Action canceled: Remove Progressive sweet`r`n" )
-                Return
-            }
             $Uninstname = (Compare-Object -DifferenceObject $TobiiVer.displayname -ReferenceObject $cbox.Name -CaseSensitive -ExcludeDifferent -IncludeEqual | Select-Object InputObject).InputObject
             #$Outputbox.Appendtext( "Following apps will be removed $Uninstname`r`n" ) 
-            if ($Uninstname -match "Beta") {
-                $test = $Uninstname -replace '\(Beta\)', ""
-            }
+            $Outputbox.Appendtext( "Uninstname =$Uninstname")
 
-            $newname1 = $test + "Updater Service (Beta)"
-            $newname2 = $test + "Launcher (Beta)"
-            $newname3 = $Uninstname + " Updater Service"
-            $newname4 = $Uninstname + " Launcher"
-
-            $TobiiVer2 = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
-            Get-ItemProperty  | Where-Object { 
-                ($_.Displayname -eq "$Uninstname") -or 
-                ($_.Displayname -eq "$newname1") -or
-                ($_.Displayname -eq "$newname2") -or 
-                ($_.Displayname -eq "$newname3") -or
-                ($_.Displayname -eq "$newname4")
-            } | Select-Object Displayname, UninstallString 
-            foreach ( $tobiivers in $TobiiVer2) {
-                $Displayname = $tobiivers.Displayname
-                $Outputbox.Appendtext( "Removing - " + "$Displayname`r`n" )
-                $uninst = $tobiivers.UninstallString -replace "msiexec.exe", "" -Replace "/I", "" -Replace "/X", ""
-
-                start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
-            }
-
-            $BrowseBetaPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse Beta", 
-                "$ENV:ProgramData\Tobii Dynavox\Browse Beta", 
-                "$ENV:ProgramData\Tobii Dynavox\Pegasus Review",
-                "HKCU:\Software\Tobii Dynavox\Browse Updater Service Beta" )
-            $BrowsePath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse", 
-                "$ENV:ProgramData\Tobii Dynavox\Browse")
-            $TalkBetaPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk Beta", 
-                "$ENV:ProgramData\Tobii Dynavox\Talk Beta",
-                "HKCU:\Software\Tobii Dynavox\Talk Updater Service Beta")
-            $TalkPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk")
-            $SwitcherBetaPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher Beta", 
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\App Switcher Review", 
-                "$ENV:ProgramData\Tobii Dynavox\Switcher Beta")
-            $SwitcherPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher", 
-                "$ENV:ProgramData\Tobii Dynavox\Switcher",
-                "$ENV:Program Files\Tobii Dynavox\Switcher",
-                "HKCU:\Software\Tobii Dynavox\Switcher")
-            $CCReviewPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Computer Control Review", 
-                "$ENV:ProgramData\Tobii Dynavox\Computer Control Review",
-                "HKCU:\Software\Tobii Dynavox\Computer Control Review",
-                "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Updater Service Review"
-            )
-            $CCPath = (
-                "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Computer Control", 
-                "$ENV:ProgramData\Tobii Dynavox\Computer Control",
-                "HKCU:\Software\Tobii Dynavox\Computer Control",
-                "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control",
-                "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Updater Service"
-            )
-            $PhoneBetaPath = (
-                "$ENV:ProgramData\Tobii Dynavox\Phone Updater Service Beta",
-                "$Env:USERPROFILE\AppData\Local\Tobii Dynavox\Phone Beta\",
-                "HKCU:\Software\Tobii Dynavox\Phone Updater Service Review")
-
-            if ($Uninstname -eq "Tobii Dynavox Browse (Beta)") {
-                if (Test-Path $BrowseBetaPath) {
-                    $Outputbox.appendtext( "Removing - " + "$BrowseBetaPath`r`n" )
-                    Remove-Item $BrowseBetaPath -Recurse -Force -ErrorAction Ignore
+            if ($Uninstname -eq "Tobii Dynavox Browse") {
+                $Browses = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Browse Launcher") -or 
+            ($_.Displayname -eq "Tobii Dynavox Browse Updater Service") -or
+            ($_.Displayname -eq "Tobii Dynavox Browse") -or
+            ($_.Displayname -eq "Tobii Dynavox Prediction Service") 
+                } | Select-Object Displayname, UninstallString 
+        
+                foreach ( $Browse in $Browses) {
+                    $Displayname = $Browse.Displayname
+                    $Outputbox.Appendtext(  "Removing - " + "$Displayname" )
+                    $uninst = $Browse.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                 }
+                $pathbrowses = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse",
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Prediction Service",
+                    "$ENV:ProgramData\Tobii Dynavox\Browse",
+                    "C:\Program Files\Tobii Dynavox\Browse",
+                    "C:\Program Files\Tobii Dynavox\Prediction Service",
+                    "HKCU:\Software\Tobii Dynavox\Browse",
+                    "HKCU:\Software\Tobii Dynavox\Browse Launcher",
+                    "HKCU:\Software\Tobii Dynavox\Browse Updater Service",
+                    "HKCU:\Software\Tobii Dynavox\Prediction Service",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse Launcher",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse Updater Service")
+                foreach ($pathbrowse in $pathbrowses) {
+                    if ($pathbrowse) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathbrowse" )
+                        Remove-item $pathbrowse -Recurse -ErrorAction Ignore
+                    }
+                } 
             }
-            elseif ($Uninstname -eq "Tobii Dynavox Browse") {
-                if (Test-Path $BrowsePath) {
-                    $Outputbox.appendtext( "Removing - " + "$BrowsePath`r`n" )
-                    Remove-Item $BrowsePath -Recurse -Force -ErrorAction Ignore
+            elseif ($Uninstname -eq "Tobii Dynavox Control") {
+                $Controls = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Control Updater Service") -or
+            ($_.Displayname -eq "Tobii Dynavox Control") 
+                } | Select-Object Displayname, UninstallString 
+        
+                foreach ( $Control in $Controls) {
+                    $Displayname = $Control.Displayname
+                    $Outputbox.Appendtext(  "Removing - " + "$Displayname" )
+                    $uninst = $Control.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                 }
+                $pathControls = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Computer Control",
+                    "$ENV:ProgramData\Tobii Dynavox\Computer Control",
+                    "C:\Program Files\Tobii Dynavox\Computer Control",
+                    "HKCU:\Software\Tobii Dynavox\Computer Control",
+                    "HKCU:\Software\Tobii Dynavox\Computer Control Launcher",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Updater Service")
+                foreach ($pathControl in $pathControls) {
+                    if ($pathControl) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathControl" )
+                        Remove-item $pathControl -Recurse -ErrorAction Ignore
+                    }
+                } 
             }
-            elseif ($Uninstname -eq "Tobii Dynavox Talk (Beta)") {
-                if (Test-Path $TalkBetaPath) {
-                    $Outputbox.appendtext( "Removing - " + "$TalkBetaPath`r`n" )
-                    Remove-Item $TalkBetaPath -Recurse -Force -ErrorAction Ignore
+            elseif ($Uninstname -eq "Tobii Dynavox Phone") {
+                $Phones = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Phone Launcher") -or 
+            ($_.Displayname -eq "Tobii Dynavox Phone Updater Service") -or
+            ($_.Displayname -eq "Tobii Dynavox Phone") 
+                } | Select-Object Displayname, UninstallString 
+        
+                stop-process -Name "*Tdx.Phone*" -Force
+                foreach ( $Phone in $Phones) {
+                    $Displayname = $Phone.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname" )
+                    $uninst = $Phone.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                 }
-            }
-            elseif ($Uninstname -eq "Tobii Dynavox Switcher (Beta)") {
-                if (Test-Path $SwitcherBetaPath) {
-                    $Outputbox.appendtext( "Removing - " + "$SwitcherBetaPath`r`n" )
-                    stop-process -Name "*switcher*" -Force
-                    Remove-Item $SwitcherBetaPath -Recurse -Force -ErrorAction Ignore
-                }
+                $pathPhones = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Phone",
+                    "$ENV:USERPROFILE\AppData\Local\Tobii Dynavox\Phone",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone Launcher",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone Updater Service",
+                    "C:\Program Files\Tobii Dynavox\Phone",
+                    "C:\Program Files\Tobii Dynavox\Phone Launcher",
+                    "C:\Program Files\Tobii Dynavox\Phone Updater Service",
+                    "HKCU:\Software\Tobii Dynavox\Phone",
+                    "HKCU:\Software\Tobii Dynavox\Phone Launcher",
+                    "HKCU:\Software\Tobii Dynavox\Phone Updater Service")
+                foreach ($pathPhone in $pathPhones) {
+                    if ($pathPhone) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathPhone" )
+                        Remove-item $pathPhone -Recurse -ErrorAction Ignore
+                    }
+                } 
             }
             elseif ($Uninstname -eq "Tobii Dynavox Switcher") {
-                if (Test-Path $SwitcherPath) {
-                    $Outputbox.appendtext( "Removing - " + "$SwitcherPath`r`n" )
-                    stop-process -Name "*switcher*" -Force
-                    Remove-Item $SwitcherPath -Recurse -Force -ErrorAction Ignore
+                $Switchers = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Switcher Updater Service") -or
+            ($_.Displayname -eq "Tobii Dynavox Switcher") 
+                } | Select-Object Displayname, UninstallString 
+
+                foreach ( $Switcher in $Switchers) {
+                    $Displayname = $Switcher.Displayname
+                    $Outputbox.Appendtext(  "Removing - " + "$Displayname" )
+                    $uninst = $Switcher.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathSwitchers = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher",
+                    "$ENV:ProgramData\Tobii Dynavox\Switcher",
+                    "C:\Program Files\Tobii Dynavox\Switcher",
+                    "C:\Program Files\Tobii Dynavox\Switcher Updater Service",
+                    "HKCU:\Software\Tobii Dynavox\Switcher")
+                foreach ($pathSwitcher in $pathSwitchers) {
+                    if ($pathSwitcher) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathSwitcher" )
+                        Remove-item $pathSwitcher -Recurse -ErrorAction Ignore
+                    }
+                } 
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Talk") {
+                $Talks = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Talk Launcher") -or 
+            ($_.Displayname -eq "Tobii Dynavox Talk Updater Service") -or
+            ($_.Displayname -eq "Tobii Dynavox Talk") 
+                } | Select-Object Displayname, UninstallString 
+
+                foreach ( $Talk in $Talks) {
+                    $Displayname = $Talk.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname") 
+                    $uninst = $Talk.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathTalks = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk",
+                    "$ENV:ProgramData\Tobii Dynavox\Talk",
+                    "C:\Program Files\Tobii Dynavox\Talk",
+                    "C:\Program Files\Tobii Dynavox\Talk Launcher",
+                    "C:\Program Files\Tobii Dynavox\Talk Updater Service",
+                    "HKCU:\Software\Tobii Dynavox\Talk",
+                    "HKCU:\Software\Tobii Dynavox\Talk Launcher",
+                    "HKCU:\Software\Tobii Dynavox\Talk Updater Service")
+                foreach ($pathTalk in $pathTalks) {
+                    if ($pathTalk) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathTalk" )
+                        Remove-item $pathTalk -Recurse -ErrorAction Ignore
+                    }
+                }  
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Browse (Beta)") {
+                $Browsebetas = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Browse Launcher (Beta)") -or 
+            ($_.Displayname -eq "Tobii Dynavox Browse Updater Service (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Browse (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Prediction Service (Beta)") 
+                } | Select-Object Displayname, UninstallString 
+
+                foreach ( $Browsebeta in $Browsebetas) {
+                    $Displayname = $Browsebeta.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname" )
+                    $uninst = $Browsebeta.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathbrowsebetas = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Browse Beta",
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Prediction Service Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Browse Beta",
+                    "C:\Program Files\Tobii Dynavox\Browse Beta",
+                    "C:\Program Files\Tobii Dynavox\Prediction Service Beta",
+                    "HKCU:\Software\Tobii Dynavox\Browse Beta",
+                    "HKCU:\Software\Tobii Dynavox\Browse Launcher Beta",
+                    "HKCU:\Software\Tobii Dynavox\Browse Updater Service Beta",
+                    "HKCU:\Software\Tobii Dynavox\Prediction Service Beta",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse Beta",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse Launcher Beta",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Browse Updater Service Beta")
+                foreach ($pathbrowsebeta in $pathbrowsebetas) {
+                    if ($pathbrowsebeta) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathbrowsebeta" )
+                        Remove-item $pathbrowsebeta -Recurse -ErrorAction Ignore
+                    }
                 }
             }
             elseif ($Uninstname -eq "Tobii Dynavox Control (Beta)") {
-                if (Test-Path $CCReviewPath) {
-                    $Outputbox.appendtext( "Removing - " + "$CCReviewPath`r`n" )
-                    Remove-Item $CCReviewPath -Recurse -Force -ErrorAction Ignore
+                $Controlbetas = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Control Updater Service (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Control (Beta)") 
+                } | Select-Object Displayname, UninstallString 
+        
+                foreach ( $Controlbeta in $Controlbetas) {
+                    $Displayname = $Controlbeta.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname") 
+                    $uninst = $Controlbeta.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                 }
-            }
-            elseif ($Uninstname -eq "Tobii Dynavox Control") {
-                if (Test-Path $CCPath) {
-                    $Outputbox.appendtext( "Removing - " + "$CCPath`r`n" )
-                    Remove-Item $CCPath -Recurse -Force -ErrorAction Ignore
+                $pathControlbetas = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Computer Control Review",
+                    "$ENV:ProgramData\Tobii Dynavox\Computer Control Review",
+                    "C:\Program Files\Tobii Dynavox\Computer Control Review",
+                    "HKCU:\Software\Tobii Dynavox\Computer Control Review",
+                    "HKCU:\Software\Tobii Dynavox\Computer Control Launcher Review",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Review",
+                    "HKLM:\SOFTWARE\Wow6432Node\Tobii Dynavox\Computer Control Updater Service Review")
+                foreach ($pathControlbeta in $pathControlbetas) {
+                    if ($pathControlbeta) {
+                        $Outputbox.Appendtext(  "Removing - " + "$pathControlbeta" )
+                        Remove-item $pathControlbeta -Recurse -ErrorAction Ignore
+                    }
                 }
             }
             elseif ($Uninstname -eq "Tobii Dynavox Phone (Beta)") {
-                if (Test-Path $PhoneBetaPath) {
-                    $Outputbox.appendtext( "Removing - " + "$PhoneBetaPath`r`n" )
-                    Remove-Item $PhoneBetaPath -Recurse -Force -ErrorAction Ignore
+                $Phonebetas = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Phone Launcher (Beta)") -or 
+            ($_.Displayname -eq "Tobii Dynavox Phone Updater Service (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Phone (Beta)") 
+                } | Select-Object Displayname, UninstallString 
+        
+                stop-process -Name "*Tdx.Phone*" -Force
+                foreach ( $Phonebeta in $Phonebetas) {
+                    $Displayname = $Phonebeta.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname") 
+                    $uninst = $Phonebeta.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                 }
+                $pathPhoneBetas = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Phone Beta",
+                    "$ENV:USERPROFILE\AppData\Local\Tobii Dynavox\Phone Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone Launcher Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Phone Updater Service Beta",
+                    "C:\Program Files\Tobii Dynavox\Phone Beta",
+                    "C:\Program Files\Tobii Dynavox\Phone Launcher Beta",
+                    "C:\Program Files\Tobii Dynavox\Phone Updater Service Beta",
+                    "HKCU:\Software\Tobii Dynavox\Phone Beta",
+                    "HKCU:\Software\Tobii Dynavox\Phone Launcher Beta",
+                    "HKCU:\Software\Tobii Dynavox\Phone Updater Service Review")
+                foreach ($pathPhoneBeta in $pathPhoneBetas) {
+                    if ($pathPhoneBeta) {
+                        $Outputbox.Appendtext( "Removing - " + "$pathPhoneBeta" )
+                        Remove-item $pathPhoneBetas -Recurse -ErrorAction Ignore
+                    }
+                } 
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Switcher (Beta)") {
+                $Switcherbetas = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Switcher Updater Service (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Switcher (Beta)") 
+                } | Select-Object Displayname, UninstallString 
+        
+                foreach ( $Switcherbeta in $Switcherbetas) {
+                    $Displayname = $Switcherbeta.Displayname
+                    $Outputbox.Appendtext( "Removing - " + "$Displayname" )
+                    $uninst = $Switcherbeta.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathSwitcherBetas = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Switcher Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Switcher Beta",
+                    "C:\Program Files\Tobii Dynavox\Switcher Beta",
+                    "C:\Program Files\Tobii Dynavox\Switcher Updater Service Beta",
+                    "HKCU:\Software\Tobii Dynavox\Switcher Beta")
+                foreach ($pathSwitcherBeta in $pathSwitcherBetas) {
+                    if ($pathSwitcherBeta) {
+                        $Outputbox.Appendtext( "Removing - " + "$pathSwitcherBeta" )
+                        Remove-item $pathSwitcherBeta -Recurse -ErrorAction Ignore
+                    }
+                }
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Talk (Beta)") {
+                $Talkbetas = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Talk Launcher (Beta)") -or 
+            ($_.Displayname -eq "Tobii Dynavox Talk Updater Service (Beta)") -or
+            ($_.Displayname -eq "Tobii Dynavox Talk (Beta)") 
+                } | Select-Object Displayname, UninstallString 
+
+                foreach ( $Talkbeta in $Talkbetas) {
+                    $Displayname = $Talkbeta.Displayname
+                    $Outputbox.Appendtext("Removing - " + "$Displayname")
+                    $uninst = $Talkbeta.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathTalkBetas = (
+                    "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox\Talk Beta",
+                    "$ENV:ProgramData\Tobii Dynavox\Talk Beta",
+                    "C:\Program Files\Tobii Dynavox\Talk Beta",
+                    "C:\Program Files\Tobii Dynavox\Talk Launcher Beta",
+                    "C:\Program Files\Tobii Dynavox\Talk Updater Service Beta",
+                    "HKCU:\Software\Tobii Dynavox\Talk Beta",
+                    "HKCU:\Software\Tobii Dynavox\Talk Launcher Beta",
+                    "HKCU:\Software\Tobii Dynavox\Talk Updater Service Beta")
+                foreach ($pathTalkBeta in $pathTalkBetas) {
+                    if ($pathTalkBeta) {
+                        Write-Host ( "Removing - " + "$pathTalkBeta" )
+                        Remove-item $pathTalkBeta -Recurse -ErrorAction Ignore
+                    }
+                } 
+            }
+            elseif ($Uninstname -eq "Tobii Dynavox Telephony Bluetooth Driver") {
+                $PhoneBTHs = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ | Get-ItemProperty  | Where-Object { 
+            ($_.Displayname -eq "Tobii Dynavox Telephony Bluetooth Driver")
+                } | Select-Object Displayname, UninstallString 
+
+                foreach ( $PhoneBTH in $PhoneBTHs) {
+                    $Displayname = $PhoneBTH.Displayname
+                    $Outputbox.Appendtext("Removing - " + "$Displayname")
+                    $uninst = $PhoneBTH.UninstallString -replace "msiexec.exe ", "" -Replace "/I", "" -Replace "/X", ""
+                    start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
+                }
+                $pathPhoneBTHs = (
+                    "$ENV:ProgramData\Tobii Dynavox\Telephony Bluetooth Driver",
+                    "HKCU:\Software\Tobii Dynavox\Telephony Bluetooth Driver")
+                foreach ($pathPhoneBTH in $pathPhoneBTHs) {
+                    if ($pathPhoneBTH) {
+                        Write-Host ( "Removing - " + "$pathPhoneBTH" )
+                        Remove-item $pathPhoneBTH -Recurse -ErrorAction Ignore
+                    }
+                } 
+            
+
             }
         }
     }
-    
+    Remove-Variable * -ErrorAction SilentlyContinue
     Remove-Variable checkbox*
 
-    $Outputbox.Appendtext( "Done!`r`n" )
+    $Outputbox.Appendtext("Done!`r`n")
 }
 
 #A2 Uninstalls PCEye5 Bundle
@@ -396,7 +608,6 @@ Function UninstallPCEye5Bundle {
         "HKCU:\Software\Tobii Dynavox\Analytics", #2
         "HKCU:\Software\Tobii Dynavox\Computer Control", #3
         "HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Computer Control Updater Service", #4
-        "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation",
         "HKLM:\SOFTWARE\WOW6432Node\Tobii\Update Notifier",
         "HKLM:\SOFTWARE\WOW6432Node\Tobii Dynavox\Computer Control Updater Service Review")
 
@@ -406,7 +617,16 @@ Function UninstallPCEye5Bundle {
             Remove-item $Key -Recurse -ErrorAction Ignore
         }
     }
-        
+    if (Test-Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation\EyeTrackerModel") {
+        Remove-ItemProperty -path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation" -Name "EyeTrackerModel"
+    }
+
+    Get-Item -Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation"
+
+    if (Test-Path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation\EyeTrackerModel") {
+        Remove-ItemProperty -path "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation" -Name "EyeTrackerModel"
+    } 
+
     $TobiiVer = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |
     Get-ItemProperty | Where-Object { 
         ($_.Displayname -Match "Tobii Dynavox Computer Control") -or
@@ -473,7 +693,6 @@ Function UninstallTobiiDeviceDriversForWindows {
             Add-Content -Path "$ErrorPath\InstallerError3.txt" -Value $path
         }
     }
-    #Remove-Item "$ErrorPath\InstallerError.txt"
 
     if ($Null -eq (Get-Content "$ErrorPath\InstallerError3.txt")) {
         $OutputBox.AppendText( "File is empty, no need to copy driver setup`r`n")
@@ -489,7 +708,7 @@ Function UninstallTobiiDeviceDriversForWindows {
             Copy-Item -Path ("DriverSetup.exe") -Destination $tests4
         }
     }
-    ################################################################
+
    	$RegPath = "HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig"
     $TempPath = "$ENV:USERPROFILE\AppData\Local\Temp\EyeXConfig.reg"
     if ((Test-Path -Path $RegPath) -and (!(Test-Path -path $TempPath))) {
@@ -499,7 +718,6 @@ Function UninstallTobiiDeviceDriversForWindows {
 
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         try { 
             $erroractionpreference = "Stop"
@@ -912,7 +1130,8 @@ Function UninstallPCEyePackage {
         "$ENV:ProgramData\Tobii\Tobii Interaction",
         "$ENV:ProgramData\Tobii\Tobii Stream Engine\odin",
         "$ENV:ProgramData\TetServer",
-        "$ENV:ProgramData\Tobii Dynavox\Gaze Interaction"
+        "$ENV:ProgramData\Tobii Dynavox\Gaze Interaction",
+        "C:\Program Files (x86)\Tobii Dynavox\PCEye Update Notifier"
     )
 
     foreach ($path in $paths) {
@@ -922,18 +1141,23 @@ Function UninstallPCEyePackage {
         }
     }
 
-    $Key = (
-        "HKLM:\SOFTWARE\WOW6432Node\Tobii\ProductInformation",
+    $Keys = (
         "HKCU:\SOFTWARE\Tobii\PCEye\Update Notifier",
-        "HKCU:\SOFTWARE\Tobii\PCEye")
-		
-		
-    foreach ($key in $Key) {
+        "HKCU:\SOFTWARE\Tobii\PCEye", 
+        "HKLM:\SOFTWARE\WOW6432Node\Tobii\PCEye\Update Notifier",
+        "HKLM:\SOFTWARE\WOW6432Node\Tobii\PCEye"
+    )
+				
+    foreach ($key in $Keys) {
         if (test-path $key) {
             $Outputbox.appendtext( "Removing - " + "$key`r`n" )
             Remove-Item $key -Force -ErrorAction ignore
         }
     }
+
+    $OEMInfoPath = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\OEMInformation"
+    $EyeTrackerModel = "EyeTrackerModel"
+    if ((Get-ItemProperty $OEMInfoPath).PSObject.Properties.Name -contains $EyeTrackerModel) { Remove-ItemProperty -path $OEMInfoPath -Name "EyeTrackerModel" }
 
     $Outputbox.appendtext( "Done!`r`n" )
 }
@@ -1200,7 +1424,7 @@ Function Copylicenses {
         $LicenseTC4 | Out-file "C:\Tobii Licenses\Communicator 4\Communicator 4 License.txt" -erroraction ignore
     } #Add compass to the list.
 
-    $outputBox.AppendText( "Done!`r`n" )
+    $outputBox.AppendText( "Done Copy Licenses!`r`n" )
     Return
 }
 
@@ -1293,7 +1517,7 @@ Function GetOtherInfo {
     $GetServices = Get-Service -Name '*Tobii*' | Select-Object Name, Status | Format-table -hidetableheaders | Out-string
 
     $getdeviceid = $null
-    $getdeviceid = Get-WmiObject Win32_USBControllerDevice | % { [wmi]($_.Dependent) } | Where-Object DeviceID -Like "*Tobii*" | Select-object DeviceID
+    $getdeviceid = Get-WmiObject Win32_USBControllerDevice | ForEach-Object { [wmi]($_.Dependent) } | Where-Object DeviceID -Like "*Tobii*" | Select-object DeviceID
     $getdeviceid2 = Get-CimInstance Win32_PnPSignedDriver | Where-Object Description -Like "*WinUSB Device*" | Select-Object DeviceID
     # gwmi Win32_USBControllerDevice |%{[wmi]($_.Dependent)} | Sort Manufacturer,Description,DeviceID | Ft -GroupBy Manufacturer Description,Service,DeviceID | out-file c:\VidPid.txt
 
@@ -1328,23 +1552,23 @@ Function GetOtherInfo {
 #B3
 Function HWInfo {
     $outputBox.clear()
+ 
     #Creating folder
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "SupportTool v1.6.4.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
     }
     else { 
-        $outputbox.appendtext("File SupportTool v1.6.4.ps1 is missing!`r`n" )
+        $outputbox.appendtext("File $fileversion is missing!`r`n" )
     }
     $infofolder = "$fpath\infofolder"
     if (!(Test-Path "$infofolder")) {
-        $OutputBox.AppendText( "Creating folder..`r`n")
         New-Item -Path "$infofolder" -ItemType Directory  
     }
     else {
         Remove-Item -Path $infofolder\* -Recurse 
-        $OutputBox.AppendText( "Folder is already created. Removing files`r`n")
+        $OutputBox.AppendText( "InfoFolder is already created.`r`n")
     }
 
     #Creating files
@@ -1367,7 +1591,7 @@ Function HWInfo {
         New-Item -Path $infofolder -Name "PersistedData.txt" -ItemType "file"
         New-Item -Path $infofolder -Name "ETInfo.txt" -ItemType "file"
         New-Item -Path $infofolder -Name "DeviceInfo.txt" -ItemType "file"
-        $OutputBox.AppendText( "creating info files`r`n")
+        #$OutputBox.AppendText( "creating info files`r`n")
     }
     else {
         Clear-Content -Path "$infofolder\Monitors.txt"
@@ -1378,7 +1602,7 @@ Function HWInfo {
         Clear-Content -Path "$infofolder\USBDeviceTree.txt"
         Clear-Content -Path "$infofolder\PersistedData.txt"
         Clear-Content -Path "$infofolder\ETInfo.txt"
-        $OutputBox.AppendText( "cleaing files`r`n")
+        #$OutputBox.AppendText( "cleaing files`r`n")
     }
 
     $DesktopMonitors = Get-CimInstance -ClassName Win32_DesktopMonitor -Property *
@@ -1692,7 +1916,6 @@ Function WCF {
     $outputBox.appendtext( "Checking WCF Endpoint Blocking Software...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "handle.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         Start-Process cmd "/c  `"handle.exe net.pipe & pause `""
     }
@@ -1755,7 +1978,6 @@ Function GB2SmbiosTool {
     $outputbox.appendtext("Start `r`n")
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "GB2SmbiosTool.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         Start-Process cmd -Verb runAs "/c `"GB2SmbiosTool.exe`"" 
     }
@@ -1774,7 +1996,6 @@ Function SMBios {
     $b = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "getSMBIOSvalues.cmd" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
 
         if ($b -match "1") { 
@@ -1814,7 +2035,6 @@ Function resetBOOT {
     $outputbox.appendtext("Pinging ET..`r`n")
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         try { 
             $erroractionpreference = "Stop"
@@ -1828,20 +2048,25 @@ Function resetBOOT {
     else { 
         $outputbox.appendtext("File FWUpgrade32.exe is missing!`r`n" )
     }
-    Try {
-        $outputBox.appendtext( "Stopping all Tobii Services...`r`n" )
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%' " | Select-Object -ExpandProperty Name | Stop-Service -Force -passthru -ErrorAction ignore
-    }
-    Catch [System.Management.Automation.RemoteException] {
-        $outputbox.appendtext("No Service Installed`r`n")
+    $serviceNames = @("Tobii Service", "TobiiIS5LARGEPCEYE5", "TobiiIS5GIBBON", "TobiiGeneric")
+    foreach ($serviceName in $serviceNames) {
+        If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
+            If ((Get-Service $serviceName).Status -eq 'Running') {
+                Stop-Service $serviceName
+                $outputbox.appendtext("Stopping $serviceName`r`n")
+            }
+            else {
+                $outputbox.appendtext("$serviceName found, but it is not running.`r`n")
+            }
+        }
+        else {
+            $outputbox.appendtext("$serviceName not found`r`n")
+        }
     }
     Try {
         $outputBox.appendtext( "reseting is5 to bootloader...`r`n" )
         $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "CastorUsbCli.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
         if ($fpath.count -gt 0) {
-            $Outputbox.Appendtext("Files found!`r`n" )
             Set-Location $fpath
             .\CastorUsbCli.exe --reset BOOT
         }
@@ -1855,17 +2080,27 @@ Function resetBOOT {
         else {
             $outputbox.appendtext("Not able to read PID`r`n")
         }
-        $outputbox.appendtext("Starting all services now..`r`n")
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%Tobii Service%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiIS5LARGEPCEYE5%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-        Get-WMIObject Win32_Service -Filter "Name LIKE '%TobiiGeneric%'" | Select-Object -ExpandProperty Name | Start-Service -ErrorAction Stop
-
+        
     }
     Catch [System.Management.Automation.RemoteException] {
         $outputbox.appendtext("No Eye Tracker Connected`r`n")
     }
 
+    foreach ($serviceName in $serviceNames) {
+        if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
 
+            if ((Get-Service $serviceName).Status -ne 'Running') {
+                start-Service $serviceName
+                $outputbox.appendtext("Starting $serviceName`r`n")
+            }
+            else {
+                $outputbox.appendtext("$serviceName found, running.`r`n")
+            }
+        }
+        else {
+            $outputbox.appendtext("$serviceName not found`r`n")
+        }
+    }
     $outputbox.appendtext("Done! `r`n")
 }
 
@@ -1967,7 +2202,6 @@ Function ETConnection {
         Start-sleep -s 1
         $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
         if ($fpath.count -gt 0) {
-            $Outputbox.Appendtext("Files found!`r`n" )
             Set-Location $fpath
             try { 
                 $erroractionpreference = "Stop"
@@ -2022,7 +2256,6 @@ Function EAProfileCreation {
             Start-sleep -s 10
             $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "FWUpgrade32.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
             if ($fpath.count -gt 0) {
-                $Outputbox.Appendtext("Files found!`r`n" )
                 #Set-Location $fpath
                 try { 
                     $erroractionpreference = "Stop"
@@ -2060,7 +2293,6 @@ Function ETSamples {
     $outputBox.appendtext( "Starting TD region interaction sample...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         .\Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe
     }
@@ -2076,7 +2308,6 @@ Function Diagnostic {
     $outputBox.appendtext( "Run diagnostics application for Interaction...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "Tobii.EyeX.Diagnostics.Application.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         start-process cmd "/c `"Tobii.EyeX.Diagnostics.Application.exe`""
     }
@@ -2092,7 +2323,6 @@ Function SETest {
     $outputBox.appendtext( "running Stream Engine Test...`r`n" )
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "tests.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         .\tests.exe
     }
@@ -2108,7 +2338,6 @@ Function InternalSE {
     $outputBox.appendtext( "Starting Stream Engine Sample app...`r`n" )
     $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "sample.exe" -Recurse).FullName | Split-Path 
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         Start-Process .\sample.exe
     }
@@ -2122,14 +2351,13 @@ Function InternalSE {
 Function LogCollector {
     $outputBox.clear()
     $outputbox.appendtext("Start `r`n")
-    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "LogCollectorTool_V0.8.ps1" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
+    $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$LogCollectorTool" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
-        .\LogCollectorTool_V0.8.ps1
+        powershell.exe "$fpath\$LogCollectorTool"
     }
     else { 
-        $outputbox.appendtext("File LogCollectorTool_V0.8.ps1 is missing!`r`n" )
+        $outputbox.appendtext("File $LogCollectorTool is missing!`r`n" )
     }
     $outputbox.appendtext("Done! `r`n")
 }
@@ -2140,7 +2368,6 @@ Function BatteryLog {
     $outputBox.appendtext( "Starting TobiiDynavox.QA.BatteryMonitor.exe...`r`n" )
     $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "TobiiDynavox.QA.BatteryMonitor.exe" -Recurse).FullName | Split-Path 
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         start-process .\TobiiDynavox.QA.BatteryMonitor.exe
         $outputbox.appendtext("Results will be saves in $fpath\battery_log.csv`r`n")
@@ -2288,7 +2515,6 @@ Function VirtWin {
     $outputbox.appendtext("Start `r`n")
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "VirtualWindowCoreSDK.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     if ($fpath.count -gt 0) {
-        $Outputbox.Appendtext("Files found!`r`n" )
         Set-Location $fpath
         Start-Process cmd "/c `"VirtualWindowCoreSDK.exe`"" 
     }
@@ -2673,6 +2899,6 @@ $form.Controls.add($Button27)
 $Button27.Add_Click{ Deployment }
 
 #Form name + activate form.
-$Form.Text = "Support Tool 1.6.5"
+$Form.Text = $fileversion
 $Form.Add_Shown( { $Form.Activate() })
 $Form.ShowDialog()
