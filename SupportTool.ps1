@@ -1,6 +1,6 @@
 ﻿#Arthur Ammar Elyas, ammar.elyas@tobiidynavox.com
-#File version 
-$fileversion = "SupportTool v1.6.112_1.ps1"
+#File version  v1.6.113
+$fileversion = "SupportTool.ps1"
 
 #Forces powershell to run as an admin
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -231,6 +231,15 @@ Function UninstallProgressiveSuite {
                                     }                            
                                 }
                             } 
+                        }
+                        if ($Uninstnames -eq "Tobii Dynavox Phone") {
+                            $Outputbox.Appendtext("Removing Telephony Bluetooth driver`r`n")
+                            $BTDriver = Get-ChildItem -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ |Get-ItemProperty | Where-Object { 
+                                        ($_.Displayname -match "Tobii Dynavox Telephony Bluetooth Driver" )
+                                        } | Select-Object Displayname, UninstallString
+                            $uninst = $BTDriver.UninstallString -replace "msiexec.exe", "" -Replace "/I", "" -Replace "/X", ""
+                            $uninst = $uninst.Trim()
+                            start-process "msiexec.exe" -arg "/X $uninst /quiet /norestart" -Wait
                         }
                     }
                 
@@ -1342,7 +1351,7 @@ Function Listapps {
     #Getting SW for TT components
     if (Test-path "C:\Program Files\Tobii\Tobii EyeX") { 
         Set-Location "C:\Program Files\Tobii\Tobii EyeX"
-        $TTComponents = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
+        $TTComponent = Get-childitem * -include platform_runtime_IS5GIBBONGAZE_service.exe, InstallerPackageRemovalTool.exe, Tobii.Configuration.exe, Tobii.EyeX.Engine.exe, Tobii.EyeX.Interaction.exe, Tobii.Service.exe, tobii_stream_engine.dll  | foreach-object { "{0}`t{1}" -f $_.Name, [System.Diagnostics.FileVersionInfo]::GetVersionInfo($_).FileVersion }
     }
 
     #Getting FW version
@@ -2365,31 +2374,59 @@ Function LongTest {
     $Button6.Add_Click( { BatteryLog } )
     $Button7.Add_Click( { OLI } )
 
-
+    
     $form.ShowDialog() | Out-Null 
     $outputbox.appendtext("Done!`r`n")
+}
+
+Function Savelogs {
+    #Copy logs into result folder
+    $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
+    $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
+                                                    ($_.Name -eq 'EyeAssistEngine.log') -or
+                                                    ($_.Name -eq 'EyeTrackingSettings.log') -or
+                                                    ($_.Name -eq 'RegionInteraction.log') -or
+                                                    ($_.Name -eq 'ServerLog.txt') -or
+                                                    ($_.Name -eq 'InteractionLog.txt') -or
+                                                    ($_.Name -eq 'ServiceLog.txt') -or
+                                                    ($_.Name -eq 'pr_log0.txt') 
+    } | Select-Object -expand Fullname
+    foreach ($file in $files) {
+        Copy-Item -Path $file -Destination "$PSScriptRoot\Results" -Recurse
+    }
+
+}
+
+Function Results {
+    param (
+        [string]$outputFileName
+    )
+
+    $resultsfolder = "$PSScriptRoot\Results"
+    if (!(Test-Path $resultsfolder)) {
+        New-Item -Path "$resultsfolder" -ItemType Directory  
+    }
+
+    $outputFile = Join-Path $resultsfolder $outputFileName
+    if (!(Test-Path $outputFile)) {
+        New-Item -Path $outputFile -ItemType File 
+    }
+
+    return $outputFile
 }
 
 #B11_A
 Function ETConnection {
     $outputBox.clear()
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
-    USBLogView
     if ($fpath.count -gt 0) {
         Set-Location $fpath
     }
-    
-    $ETConnection = "$fpath\ETConnection"
-    if (!(Test-Path $ETConnection)) {
-        New-Item -Path "$ETConnection" -ItemType Directory  
-    }
-    $infofolder = "$ETConnection\ETConnectionOutput.txt"
-    if (!(Test-Path "$infofolder")) {
-        New-Item -Path "$infofolder" -ItemType file 
-    }
+    USBLogView
+    $ETConnectionOutput = Results -outputFileName "ETConnectionOutput.txt"
   
     $outputBox.appendtext( "Running ET connection check...`r`n" )
-    $outputBox.appendtext( "Results of output will be stored in $infofolder...`r`n" )
+    $outputBox.appendtext( "Results of output will be stored in $ETConnectionOutput...`r`n" )
     $a = 1
     [void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
     $title = 'Loop'
@@ -2414,26 +2451,13 @@ Function ETConnection {
         }
 
         $time = Get-Date -UFormat %H:%M:%S
-        Add-content $infofolder $time, $getinfo
+        Add-content $ETConnectionOutput $time, $getinfo
         $a
         $outputbox.appendtext("$getinfo`r`n")
         $a++
     } while ($a -le $b)
 
-    #Copy logs into result folder
-    $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
-    $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
-                                                    ($_.Name -eq 'EyeAssistEngine.log') -or
-                                                    ($_.Name -eq 'EyeTrackingSettings.log') -or
-                                                    ($_.Name -eq 'RegionInteraction.log') -or
-                                                    ($_.Name -eq 'ServerLog.txt') -or
-                                                    ($_.Name -eq 'InteractionLog.txt') -or
-                                                    ($_.Name -eq 'ServiceLog.txt') -or
-                                                    ($_.Name -eq 'pr_log0.txt') 
-    } | Select-Object -expand Fullname
-    foreach ($file in $files) {
-        Copy-Item -Path $file -Destination $ETConnection -Recurse
-    }
+    Savelogs
     $outputbox.appendtext("Done! `r`n")
 }
 
@@ -2528,10 +2552,11 @@ Function EAProfileCreation {
             $Keys = ("HKLM:\SOFTWARE\WOW6432Node\Tobii\EyeXConfig\UserProfiles" )
             Remove-item $Keys -Recurse -ErrorAction Ignore
         } )
-
+    
+    Savelogs
+    
     $form.ShowDialog() | Out-Null 
     $outputbox.appendtext("Done!`r`n")
-
 }
 
 #B11_C
@@ -2542,18 +2567,12 @@ Function RISamples {
     $fpath = Get-ChildItem -Path $PSScriptRoot -Filter "$fileversion" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     $fpathsample = Get-ChildItem -Path $PSScriptRoot -Filter "Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe" -Recurse -erroraction SilentlyContinue | Select-Object -expand Fullname | Split-Path
     USBLogView
-    $RISamples = "$fpath\RISamples"
-    if (!(Test-Path $RISamples)) {
-        New-Item -Path "$RISamples" -ItemType Directory  
-    }
-    $ConResults = "$RISamples\ETConnectionSample.txt"
-    $SamResults = "$RISamples\SampleResults.txt"
+
+    $ConResults = Results -outputFileName "RISamplesETConnectionResults.txt"
+    $SamResults = Results -outputFileName "RISamplesResults.txt"
+
     $ProcessList = @("Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample" )
     $SampleLog = "C:\trace\tobii\Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.log"
-    if (!(Test-Path "$ConResults") -or !(Test-Path "$SamResults")) {
-        New-Item -Path "$ConResults" -ItemType file 
-        New-Item -Path "$SamResults" -ItemType file 
-    }
     if ($fpathsample.count -gt 0) {
         Set-Location $fpathsample
         .\Tdx.EyeTracking.RegionInteraction.EyeAssist.Sample.exe
@@ -2586,7 +2605,8 @@ Function RISamples {
         }
     } Until (!$ProcessesFound)
 
-    [datetime[]] $timestamps = @(Get-Content -path $SampleLog -raw | Select-String '\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])*\s(\d+:\d+:\d+)' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value }) 
+    $pattern = '(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+\|DEBUG\|Tdx\.EyeTracking\.RegionInteraction\.EyeAssist\.Sample\|1 - ChessBoard\.BlockCommandAction\(\)\. Name=\[([A-Z]\d)\]\.'
+    [datetime[]] $timestamps = Get-Content -Path $SampleLog | Select-String -Pattern $pattern | ForEach-Object { $_.Matches.Groups[1].Value }
 
     if ($timestamps.Count -lt 2) {
         Write-Host "Only one result: " $timestamps[0]
@@ -2603,21 +2623,7 @@ Function RISamples {
         } 
     }
     $outputbox.appendtext("Results are saved in $fpath! `r`n")
-    #Remove-Variable * -ErrorAction SilentlyContinue
-    $LogPath = "$ENV:USERPROFILE\AppData\Roaming\Tobii Dynavox", "$ENV:ProgramData\Tobii Dynavox", "$ENV:USERPROFILE\AppData\Local\Tobii", "$ENV:ProgramData\Tobii"
-
-    $files = Get-ChildItem -Path $LogPath -Recurse | Where-Object {
-                                                    ($_.Name -eq 'EyeAssistEngine.log') -or
-                                                    ($_.Name -eq 'EyeTrackingSettings.log') -or
-                                                    ($_.Name -eq 'RegionInteraction.log') -or
-                                                    ($_.Name -eq 'ServerLog.txt') -or
-                                                    ($_.Name -eq 'InteractionLog.txt') -or
-                                                    ($_.Name -eq 'ServiceLog.txt') -or
-                                                    ($_.Name -eq 'pr_log0.txt') 
-    } | Select-Object -expand Fullname
-    foreach ($file in $files) {
-        Copy-Item -Path $file -Destination $RISamples -Recurse
-    }
+    Savelogs
     $outputbox.appendtext("Done! `r`n")
 }
 
@@ -2639,7 +2645,8 @@ Function Sleeper {
     }
     else { 
         $outputbox.appendtext("File Sleeper.exe is missing!`r`n" )
-    }	
+    }
+    Savelogs
     $outputbox.appendtext("Done! `r`n")
 }
 
@@ -2674,11 +2681,26 @@ Function BatteryLog {
     $outputbox.appendtext("Done! `r`n")
 }
 
-#B11
+#B11_G
 Function OLI {
+    $start = Get-Date -format "yyyy-MM-dd HH:mm:ss"
     $fpath = (Get-ChildItem -Path "$PSScriptRoot" -Filter "OLI.ps1" -Recurse).FullName | Split-Path
     Start-Process powershell.exe -ArgumentList "-NoExit", "-File", "$fpath\OLI.ps1"
 
+    Savelogs
+       
+    <#start-sleep 4
+    $processId = (Get-Process -Name "powershell").Id
+    while (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
+        Start-Sleep -Seconds 1  # Sleep for 1 second before checking again
+    }
+
+    # Process has exited, so you can execute your desired code here
+    Write-Host "The process has exited."
+    $end = Get-Date -format "yyyy-MM-dd HH:mm:ss"
+    write-host "Start $start"
+    write-host "end $end"
+    #>
 }
 
 #B12
